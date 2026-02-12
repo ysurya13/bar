@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import re
 from typing import BinaryIO, List
-from app.models.extracted_data import ExtractedEntry
 
 class BaseExtractor(ABC):
     """
@@ -13,12 +12,11 @@ class BaseExtractor(ABC):
     @abstractmethod
     def extract(self, file_content: BinaryIO, filename: str) -> List[dict]:
         """
-        Parses the Excel file and returns a list of dictionaries 
-        matching the ExtractedEntry model structure.
+        Parses the Excel file and returns a list of dictionaries.
         
         :param file_content: The file-like object of the uploaded Excel.
         :param filename: The name of the file (useful for metadata).
-        :return: List of dicts ready to be inserted into DB.
+        :return: List of dicts ready to be processed.
         """
         pass
 
