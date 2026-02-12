@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Excel Data Ingestion Engine"
     
     # CSV Storage Paths
-    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     DATA_DIR: str = os.path.join(BASE_DIR, "data")
     
     ENTRIES_CSV: str = os.path.join(DATA_DIR, "extracted_entries.csv")

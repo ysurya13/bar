@@ -4,6 +4,7 @@ import sys
 import os
 import plotly.express as px
 import uuid
+from types import SimpleNamespace
 
 # Add backend to path to import services
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +22,11 @@ def get_organization_pic(kode_ba):
     df = pd.read_csv(settings.PIC_CSV)
     df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
     match = df[df['kode_ba'] == str(kode_ba).zfill(3)]
-    return match.iloc[0] if not match.empty else None
+    if match.empty:
+        return None
+    # Convert to SimpleNamespace for object-like access and handle NaNs
+    data = match.iloc[0].fillna("").to_dict()
+    return SimpleNamespace(**data)
 
 # Utility: Load Non-Neraca Data
 def load_non_neraca_data(kode_ba, tahun):
@@ -65,7 +70,11 @@ def load_bar_metadata(kode_ba, tahun):
     df = pd.read_csv(settings.METADATA_CSV)
     df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
     match = df[(df['kode_ba'] == str(kode_ba).zfill(3)) & (df['tahun_anggaran'] == int(tahun))]
-    return match.iloc[0] if not match.empty else None
+    if match.empty:
+        return None
+    # Convert to SimpleNamespace for object-like access and handle NaNs
+    data = match.iloc[0].fillna("").to_dict()
+    return SimpleNamespace(**data)
 
 # Utility: Save BAR Metadata
 def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, jabatan=None, ttd_type=None, catatan=None):
@@ -109,7 +118,7 @@ st.set_page_config(
 def load_db_data() -> pd.DataFrame:
     if not os.path.exists(settings.ENTRIES_CSV):
         return pd.DataFrame()
-    return pd.read_csv(settings.ENTRIES_CSV)
+    return pd.read_csv(settings.ENTRIES_CSV, dtype={'kode_ba': str})
 
 # Utility: Simple Asset Categorization
 def get_asset_category(row):
@@ -450,7 +459,7 @@ elif page == "Face BAR":
         
         with col_st1:
             st.markdown("##### **Assigned Officer (K/L)**")
-            if existing_meta and existing_meta.nama_petugas:
+            if existing_meta is not None and existing_meta.nama_petugas:
                 st.success(f"""
                 **Name:** {existing_meta.nama_petugas}  
                 **NIP:** {existing_meta.nip_petugas}  
@@ -462,7 +471,7 @@ elif page == "Face BAR":
                 
         with col_st2:
             st.markdown("##### **Counterpart Officer (PKKN)**")
-            if counterpart_pic:
+            if counterpart_pic is not None:
                 st.success(f"""
                 **Name:** {counterpart_pic.nama_pic}  
                 **NIP:** {counterpart_pic.nip_pic}  
@@ -474,11 +483,11 @@ elif page == "Face BAR":
         st.subheader("Signing Officer Details")
         
         with st.form("face_bar_form"):
-            nama = st.text_input("Officer Name", value=existing_meta.nama_petugas if existing_meta else "")
-            nip = st.text_input("Officer Identification Number (NIP)", value=existing_meta.nip_petugas if existing_meta else "")
-            jabatan = st.text_input("Jabatan / Person in Charge", value=existing_meta.jabatan_petugas if existing_meta else "")
+            nama = st.text_input("Officer Name", value=existing_meta.nama_petugas if existing_meta is not None else "")
+            nip = st.text_input("Officer Identification Number (NIP)", value=existing_meta.nip_petugas if existing_meta is not None else "")
+            jabatan = st.text_input("Jabatan / Person in Charge", value=existing_meta.jabatan_petugas if existing_meta is not None else "")
             ttd_type = st.radio("Signature Type", ["Elektronik", "Manual"], 
-                               index=0 if not existing_meta or existing_meta.jenis_ttd == "Elektronik" else 1)
+                               index=0 if existing_meta is None or existing_meta.jenis_ttd == "Elektronik" else 1)
             
             submitted = st.form_submit_button("💾 Save BAR Metadata", type="primary")
             if submitted:
@@ -688,7 +697,7 @@ elif page == "Lampiran Kualitatif":
         st.subheader("Qualitative Notes")
         catatan_kualitatif = st.text_area(
             "Analysis / Explanation", 
-            value=existing_meta.catatan_kualitatif if existing_meta and existing_meta.catatan_kualitatif else "",
+            value=existing_meta.catatan_kualitatif if existing_meta is not None and existing_meta.catatan_kualitatif else "",
             height=300, 
             placeholder="Enter qualitative explanation here..."
         )
