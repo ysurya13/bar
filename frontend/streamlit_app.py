@@ -12,7 +12,51 @@ sys.path.append(backend_path)
 
 from app.services.extraction.factory import ExtractorFactory
 from app.db.session import SessionLocal
-from app.models.extracted_data import ExtractedEntry
+from app.models.extracted_data import ExtractedEntry, BARMetadata
+
+# Utility: Load BAR Metadata
+def load_bar_metadata(kode_ba, tahun):
+    db = SessionLocal()
+    try:
+        return db.query(BARMetadata).filter(
+            BARMetadata.kode_ba == kode_ba,
+            BARMetadata.tahun_anggaran == tahun
+        ).first()
+    finally:
+        db.close()
+
+# Utility: Save BAR Metadata
+def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, ttd_type=None, catatan=None):
+    db = SessionLocal()
+    try:
+        existing = db.query(BARMetadata).filter(
+            BARMetadata.kode_ba == kode_ba,
+            BARMetadata.tahun_anggaran == tahun
+        ).first()
+        
+        if existing:
+            if nama is not None: existing.nama_petugas = nama
+            if nip is not None: existing.nip_petugas = nip
+            if ttd_type is not None: existing.jenis_ttd = ttd_type
+            if catatan is not None: existing.catatan_kualitatif = catatan
+        else:
+            new_meta = BARMetadata(
+                kode_ba=kode_ba,
+                tahun_anggaran=tahun,
+                nama_petugas=nama,
+                nip_petugas=nip,
+                jenis_ttd=ttd_type,
+                catatan_kualitatif=catatan
+            )
+            db.add(new_meta)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        st.error(f"Error saving metadata: {e}")
+        return False
+    finally:
+        db.close()
 
 st.set_page_config(
     page_title="Financial Data Engine",
@@ -59,8 +103,19 @@ def get_asset_category(row):
     return 'Lainnya'
 
 # Sidebar Navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Data Ingestion", "Analytics Dashboard"])
+st.sidebar.title("📌 Main Menu")
+main_page = st.sidebar.selectbox("Main Category", ["Data Ingestion", "Analytics Dashboard", "Generate BAR"])
+
+if main_page == "Data Ingestion":
+    st.sidebar.divider()
+    page = "Data Ingestion"
+elif main_page == "Analytics Dashboard":
+    st.sidebar.divider()
+    page = "Analytics Dashboard"
+elif main_page == "Generate BAR":
+    st.sidebar.divider()
+    st.sidebar.subheader("Generate BAR")
+    page = st.sidebar.radio("Sub Page", ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"])
 
 if page == "Data Ingestion":
     st.title("📊 Data Ingestion")
@@ -295,14 +350,9 @@ elif page == "Analytics Dashboard":
                     st.info("No 'Saldo Awal' or 'Neraca' data found for the selected filters to perform waterfall analysis.")
                 else:
                     # Calculate Deltas
-                    deltas = []
-                    measures = []
                     x_labels = ["Total Saldo Awal"]
                     y_vals = [start_vals.sum()]
-                    measures.append("absolute")
-                    
-                    total_start = start_vals.sum()
-                    running_total = total_start
+                    measures = ["absolute"]
                     
                     for asset_type in all_asset_types:
                         s = start_vals.get(asset_type, 0)
@@ -312,10 +362,9 @@ elif page == "Analytics Dashboard":
                             x_labels.append(asset_type)
                             y_vals.append(delta)
                             measures.append("relative")
-                            running_total += delta
                     
                     x_labels.append("Total Neraca")
-                    y_vals.append(end_vals.sum()) # Actual total neraca
+                    y_vals.append(end_vals.sum())
                     measures.append("total")
                     
                     import plotly.graph_objects as go
@@ -344,6 +393,100 @@ elif page == "Analytics Dashboard":
             st.divider()
             st.subheader("Filtered Asset Details")
             st.dataframe(filtered_df, use_container_width=True)
+
+elif page == "Face BAR":
+    st.title("📄 Face BAR (Berita Acara Rekonsiliasi)")
+    st.markdown("Enter reporting metadata and signing officer details.")
+
+    df_db = load_db_data()
+    if df_db.empty:
+        st.warning("No data found. Please upload data first.")
+    else:
+        # Selection for specific BA and Year
+        all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
+        all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas)
+            # Find kode_ba for the selected name
+            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        with col2:
+            sel_year = st.selectbox("Select Fiscal Year", all_years)
+
+        # Load existing metadata
+        existing_meta = load_bar_metadata(sel_ba_code, sel_year)
+        
+        st.divider()
+        st.subheader("Current Status")
+        if existing_meta and existing_meta.nama_petugas:
+            st.success(f"""
+            **Assigned Officer:** {existing_meta.nama_petugas}  
+            **NIP:** {existing_meta.nip_petugas}  
+            **Signature:** {existing_meta.jenis_ttd}
+            """)
+        else:
+            st.info("⚠️ **No Officers Assigned** for this period.")
+
+        st.subheader("Signing Officer Details")
+        
+        with st.form("face_bar_form"):
+            nama = st.text_input("Officer Name", value=existing_meta.nama_petugas if existing_meta else "")
+            nip = st.text_input("Officer Identification Number (NIP)", value=existing_meta.nip_petugas if existing_meta else "")
+            ttd_type = st.radio("Signature Type", ["Elektronik", "Manual"], 
+                              index=0 if not existing_meta or existing_meta.jenis_ttd == "Elektronik" else 1)
+            
+            submitted = st.form_submit_button("💾 Save BAR Metadata", type="primary")
+            if submitted:
+                if save_bar_metadata(sel_ba_code, sel_year, nama=nama, nip=nip, ttd_type=ttd_type):
+                    st.success("BAR Metadata saved successfully!")
+                    st.rerun()
+
+        st.divider()
+        st.subheader("Asset Balance Summary")
+        st.info("The asset balance table will be implemented based on the next requirements. (Placeholder)")
+        
+        # Show what we've got
+        st.markdown(f"**Target BA:** {sel_ba_name} ({sel_ba_code})")
+        st.markdown(f"**Fiscal Year:** {sel_year}")
+
+elif page == "Lampiran Kualitatif":
+    st.title("📝 Lampiran Kualitatif")
+    st.markdown("Provide qualitative analysis and explanations for the BAR.")
+    
+    df_db = load_db_data()
+    if df_db.empty:
+        st.warning("No data found. Please upload data first.")
+    else:
+        all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
+        all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas, key="qual_ba")
+            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        with col2:
+            sel_year = st.selectbox("Select Fiscal Year", all_years, key="qual_year")
+
+        # Load existing metadata
+        existing_meta = load_bar_metadata(sel_ba_code, sel_year)
+        
+        st.divider()
+        st.subheader("Qualitative Notes")
+        catatan_kualitatif = st.text_area(
+            "Analysis / Explanation", 
+            value=existing_meta.catatan_kualitatif if existing_meta and existing_meta.catatan_kualitatif else "",
+            height=300, 
+            placeholder="Enter qualitative explanation here..."
+        )
+        if st.button("💾 Save Qualitative Notes", type="primary"):
+            if save_bar_metadata(sel_ba_code, sel_year, catatan=catatan_kualitatif):
+                st.success("Qualitative notes saved successfully!")
+                st.rerun()
+
+elif page == "Lampiran Kuantitatif":
+    st.title("🔢 Lampiran Kuantitatif")
+    st.info("Detailed quantitative tables will be added here.")
 
 st.divider()
 st.caption("Multi-Format Excel Data Ingestion & Analytics Engine v1.1")

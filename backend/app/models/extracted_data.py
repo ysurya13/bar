@@ -23,3 +23,19 @@ class ExtractedEntry(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+class BARMetadata(Base):
+    __tablename__ = "bar_metadata"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kode_ba = Column(String, index=True)
+    tahun_anggaran = Column(Integer, index=True)
+    
+    nama_petugas = Column(String)
+    nip_petugas = Column(String)
+    jenis_ttd = Column(String)  # "Elektronik" or "Manual"
+    
+    catatan_kualitatif = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
