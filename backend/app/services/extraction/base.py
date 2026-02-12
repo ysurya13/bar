@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 import pandas as pd
+import re
 from typing import BinaryIO, List
 from app.models.extracted_data import ExtractedEntry
 
@@ -32,74 +33,65 @@ class BaseExtractor(ABC):
 
     def parse_metadata(self, df: pd.DataFrame) -> dict:
         """
-        Parses the header rows (first 10) to find metadata like UAPB/UAKPB.
-        Returns a dict with 'kode_ba' and 'uraian_ba'.
+        Parses the header rows (first 10) to find metadata like UAPB/UAKPB and TAHUN ANGGARAN.
+        Returns a dict with 'kode_ba', 'uraian_ba', and 'tahun_anggaran'.
         """
-        metadata = {"kode_ba": "000", "uraian_ba": "Unknown"}
+        metadata = {
+            "kode_ba": "000", 
+            "uraian_ba": "Unknown",
+            "tahun_anggaran": 2023  # Default fallback
+        }
         
         # Look at first 10 rows
         for idx in range(min(10, len(df))):
             row_values = [str(val).strip() for val in df.iloc[idx].values if pd.notna(val)]
             row_str = " ".join(row_values)
             
-            # Check for UAPB or UAKPB marker
+            # 1. Search for TAHUN ANGGARAN
+            if "TAHUN ANGGARAN" in row_str:
+                # Look for a 4-digit year in this row
+                for part in row_values:
+                    # Case 1: Part is exactly the 4-digit year
+                    clean_part = part.replace(":", "").replace("-", "").strip()
+                    if clean_part.isdigit() and len(clean_part) == 4:
+                        metadata["tahun_anggaran"] = int(clean_part)
+                        break
+                    
+                    # Case 2: Year is inside a string like "TAHUN ANGGARAN 2024"
+                    if "TAHUN ANGGARAN" in part:
+                        # Find all digit sequences
+                        years = re.findall(r'\b(20\d{2})\b', part)
+                        if years:
+                            metadata["tahun_anggaran"] = int(years[0])
+                            break
+            
+            # 2. Search for UAPB or UAKPB marker
             if "UAPB" in row_str or "UAKPB" in row_str:
-                # Naive strategy: Look for the first numeric string as code, and the longest string as description?
-                # Or based on specific patterns seen in inspection.
-                # Pattern often: "UAPB", ":", "001", "MAJELIS..."
-                
                 parts = row_values
-                found_marker = False
+                marker_in_row = False
                 for i, part in enumerate(parts):
                     if "UAPB" in part or "UAKPB" in part:
-                        found_marker = True
-                        # The marker cell might also contain the code, e.g. "UAPB : 001"
-                        # But simpler to just continue and process next parts/sub-parts
+                        marker_in_row = True
                         
-                    if found_marker:
-                        # Split part by colon to handle ": 001" or "UAPB: 001"
-                        # Also replace colon with space to ensure separation
-                        sanitized = part.replace(":", " ").replace("UAPB", "").replace("UAKPB", "")
+                    if marker_in_row:
+                        sanitized = part.replace(":", " ").replace("UAPB", "").replace("UAKPB", "").strip()
                         sub_parts = sanitized.split()
                         
                         for sub in sub_parts:
-                            # Check for code (digits or float-like string)
                             clean_sub = sub.replace(".0", "") if sub.endswith(".0") else sub
-                            
                             if clean_sub.isdigit() and metadata["kode_ba"] == "000": 
                                  if len(clean_sub) < 3:
                                      metadata["kode_ba"] = clean_sub.zfill(3)
                                  else:
                                      metadata["kode_ba"] = clean_sub
-                                     
-                            # If it's text and not the code, assume description
-                            # Use original 'part' or 'sub'?
-                            # Usually description is a long string. 
-                            # If sub is "MAJELIS", it's text.
-                            # But we want the full description which might be "MAJELIS PERMUSYAWARATAN RAKYAT"
-                            # The description is likely the rest of the parts. 
-                            # But if we are iterating sub-parts, we might lose context of the full string if split.
-                            
-                        # Fallback for description: If part contains text and is not just the code
-                        # This is a bit heuristic. Better to capture description after code is found?
-                        
-                # Second pass or refined pass for description
-                # Once code is found, the 'rest' is description?
-                if metadata["kode_ba"] != "000":
-                    # Re-iterate to find description?
-                    # Or just:
+                
+                # Refined pass for description
+                if metadata["kode_ba"] != "000" and metadata["uraian_ba"] == "Unknown":
                     full_row_str = " ".join(parts)
-                    # Find code in the string, everything after is description?
-                    # "UAPB : 001 MAJELIS ..."
                     if metadata["kode_ba"] in full_row_str:
-                        # Split by code
                         _, remainder = full_row_str.split(metadata["kode_ba"], 1)
                         candidate_desc = remainder.strip().replace(":", "").strip()
                         if len(candidate_desc) > 2:
                              metadata["uraian_ba"] = candidate_desc
-                
-                # Break after processing the marker row
-                if found_marker:
-                    break
                 
         return metadata

@@ -34,7 +34,7 @@ class SaldoAwalExtractor(BaseExtractor):
                     "kode_akun": code_str,
                     "uraian_akun": str(desc_raw).strip(),
                     "nilai": val_float,
-                    "tahun_anggaran": 2023,
+                    "tahun_anggaran": metadata["tahun_anggaran"],
                     "kode_ba": metadata["kode_ba"],
                     "uraian_ba": metadata["uraian_ba"]
                 }
