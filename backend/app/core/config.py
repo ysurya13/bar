@@ -3,20 +3,21 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Excel Data Ingestion Engine"
-    # Default to SQLite for development, can be overridden by env var
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./sql_app.db")
+    
+    # CSV Storage Paths
+    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    DATA_DIR: str = os.path.join(BASE_DIR, "data")
+    
+    ENTRIES_CSV: str = os.path.join(DATA_DIR, "extracted_entries.csv")
+    METADATA_CSV: str = os.path.join(DATA_DIR, "bar_metadata.csv")
+    NON_NERACA_CSV: str = os.path.join(DATA_DIR, "bar_non_neraca.csv")
+    PIC_CSV: str = os.path.join(DATA_DIR, "organization_pics.csv")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Fallback for Streamlit Secrets if no env var is set
-        if self.DATABASE_URL == "sqlite:///./sql_app.db":
-            try:
-                import streamlit as st
-                if "DATABASE_URL" in st.secrets:
-                    self.DATABASE_URL = st.secrets["DATABASE_URL"]
-            except Exception:
-                # Streamlit not available or secrets not configured
-                pass
+        # Ensure data directory exists
+        if not os.path.exists(self.DATA_DIR):
+            os.makedirs(self.DATA_DIR, exist_ok=True)
 
     class Config:
         case_sensitive = True

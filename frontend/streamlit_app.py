@@ -11,105 +11,93 @@ backend_path = os.path.join(current_dir, "..", "backend")
 sys.path.append(backend_path)
 
 from app.services.extraction.factory import ExtractorFactory
-from app.db.session import SessionLocal
-from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC
 from app.services.reporting.pdf_generator import BARPDFGenerator
+from app.core.config import settings
 
 # Utility: Get Organization PIC (Counterpart)
 def get_organization_pic(kode_ba):
-    db = SessionLocal()
-    try:
-        return db.query(OrganizationPIC).filter(
-            OrganizationPIC.kode_ba == kode_ba
-        ).first()
-    finally:
-        db.close()
+    if not os.path.exists(settings.PIC_CSV):
+        return None
+    df = pd.read_csv(settings.PIC_CSV)
+    df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
+    match = df[df['kode_ba'] == str(kode_ba).zfill(3)]
+    return match.iloc[0] if not match.empty else None
 
 # Utility: Load Non-Neraca Data
 def load_non_neraca_data(kode_ba, tahun):
-    db = SessionLocal()
-    try:
-        results = db.query(BARNonNeraca).filter(
-            BARNonNeraca.kode_ba == kode_ba,
-            BARNonNeraca.tahun_anggaran == tahun
-        ).all()
-        return {r.label: {'awal': float(r.nilai_awal), 'akhir': float(r.nilai_akhir)} for r in results}
-    finally:
-        db.close()
+    if not os.path.exists(settings.NON_NERACA_CSV):
+        return {}
+    df = pd.read_csv(settings.NON_NERACA_CSV)
+    df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
+    match = df[(df['kode_ba'] == str(kode_ba).zfill(3)) & (df['tahun_anggaran'] == int(tahun))]
+    return {row.label: {'awal': float(row.nilai_awal), 'akhir': float(row.nilai_akhir)} for _, row in match.iterrows()}
 
 # Utility: Save Non-Neraca Data
 def save_non_neraca_data(kode_ba, tahun, labels_values):
-    db = SessionLocal()
     try:
-        # Delete existing for this BA/Year
-        db.query(BARNonNeraca).filter(
-            BARNonNeraca.kode_ba == kode_ba,
-            BARNonNeraca.tahun_anggaran == tahun
-        ).delete()
+        df = pd.read_csv(settings.NON_NERACA_CSV) if os.path.exists(settings.NON_NERACA_CSV) else pd.DataFrame(columns=['kode_ba', 'tahun_anggaran', 'label', 'nilai_awal', 'nilai_akhir'])
+        df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
         
+        # Remove existing for this BA/Year
+        df = df[~((df['kode_ba'] == str(kode_ba).zfill(3)) & (df['tahun_anggaran'] == int(tahun)))]
+        
+        new_rows = []
         for label, vals in labels_values.items():
-            db_entry = BARNonNeraca(
-                kode_ba=kode_ba,
-                tahun_anggaran=tahun,
-                label=label,
-                nilai_awal=vals['awal'],
-                nilai_akhir=vals['akhir']
-            )
-            db.add(db_entry)
-        db.commit()
+            new_rows.append({
+                'kode_ba': str(kode_ba).zfill(3),
+                'tahun_anggaran': int(tahun),
+                'label': label,
+                'nilai_awal': vals['awal'],
+                'nilai_akhir': vals['akhir']
+            })
+        
+        df = pd.concat([df, pd.DataFrame(new_rows)], ignore_index=True)
+        df.to_csv(settings.NON_NERACA_CSV, index=False)
         return True
     except Exception as e:
-        db.rollback()
         st.error(f"Error saving non-neraca data: {e}")
         return False
-    finally:
-        db.close()
 
 # Utility: Load BAR Metadata
 def load_bar_metadata(kode_ba, tahun):
-    db = SessionLocal()
-    try:
-        return db.query(BARMetadata).filter(
-            BARMetadata.kode_ba == kode_ba,
-            BARMetadata.tahun_anggaran == tahun
-        ).first()
-    finally:
-        db.close()
+    if not os.path.exists(settings.METADATA_CSV):
+        return None
+    df = pd.read_csv(settings.METADATA_CSV)
+    df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
+    match = df[(df['kode_ba'] == str(kode_ba).zfill(3)) & (df['tahun_anggaran'] == int(tahun))]
+    return match.iloc[0] if not match.empty else None
 
 # Utility: Save BAR Metadata
 def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, jabatan=None, ttd_type=None, catatan=None):
-    db = SessionLocal()
     try:
-        existing = db.query(BARMetadata).filter(
-            BARMetadata.kode_ba == kode_ba,
-            BARMetadata.tahun_anggaran == tahun
-        ).first()
+        df = pd.read_csv(settings.METADATA_CSV) if os.path.exists(settings.METADATA_CSV) else pd.DataFrame(columns=['kode_ba', 'tahun_anggaran', 'nama_petugas', 'nip_petugas', 'jabatan_petugas', 'jenis_ttd', 'catatan_kualitatif'])
+        df['kode_ba'] = df['kode_ba'].astype(str).str.zfill(3)
         
-        if existing:
-            if nama is not None: existing.nama_petugas = nama
-            if nip is not None: existing.nip_petugas = nip
-            if jabatan is not None: existing.jabatan_petugas = jabatan
-            if ttd_type is not None: existing.jenis_ttd = ttd_type
-            if catatan is not None: existing.catatan_kualitatif = catatan
+        mask = (df['kode_ba'] == str(kode_ba).zfill(3)) & (df['tahun_anggaran'] == int(tahun))
+        
+        if len(df[mask]) > 0:
+            if nama is not None: df.loc[mask, 'nama_petugas'] = nama
+            if nip is not None: df.loc[mask, 'nip_petugas'] = nip
+            if jabatan is not None: df.loc[mask, 'jabatan_petugas'] = jabatan
+            if ttd_type is not None: df.loc[mask, 'jenis_ttd'] = ttd_type
+            if catatan is not None: df.loc[mask, 'catatan_kualitatif'] = catatan
         else:
-            new_meta = BARMetadata(
-                kode_ba=kode_ba,
-                tahun_anggaran=tahun,
-                nama_petugas=nama,
-                nip_petugas=nip,
-                jabatan_petugas=jabatan,
-                jenis_ttd=ttd_type,
-                catatan_kualitatif=catatan
-            )
-            db.add(new_meta)
-        db.commit()
+            new_meta = {
+                'kode_ba': str(kode_ba).zfill(3),
+                'tahun_anggaran': int(tahun),
+                'nama_petugas': nama,
+                'nip_petugas': nip,
+                'jabatan_petugas': jabatan,
+                'jenis_ttd': ttd_type,
+                'catatan_kualitatif': catatan
+            }
+            df = pd.concat([df, pd.DataFrame([new_meta])], ignore_index=True)
+            
+        df.to_csv(settings.METADATA_CSV, index=False)
         return True
     except Exception as e:
-        db.rollback()
         st.error(f"Error saving metadata: {e}")
         return False
-    finally:
-        db.close()
 
 st.set_page_config(
     page_title="Financial Data Engine",
@@ -119,29 +107,9 @@ st.set_page_config(
 
 # Utility: Load data from DB
 def load_db_data() -> pd.DataFrame:
-    db = SessionLocal()
-    try:
-        query = db.query(ExtractedEntry).all()
-        if not query:
-            return pd.DataFrame()
-        
-        data = []
-        for entry in query:
-            data.append({
-                "id": entry.id,
-                "upload_id": entry.upload_id,
-                "data_category": entry.data_category,
-                "kode_akun": entry.kode_akun,
-                "uraian_akun": entry.uraian_akun,
-                "nilai": float(entry.nilai) if entry.nilai else 0.0,
-                "tahun_anggaran": entry.tahun_anggaran,
-                "kode_ba": entry.kode_ba,
-                "uraian_ba": entry.uraian_ba,
-                "created_at": entry.created_at
-            })
-        return pd.DataFrame(data)
-    finally:
-        db.close()
+    if not os.path.exists(settings.ENTRIES_CSV):
+        return pd.DataFrame()
+    return pd.read_csv(settings.ENTRIES_CSV)
 
 # Utility: Simple Asset Categorization
 def get_asset_category(row):
@@ -231,54 +199,59 @@ if page == "Data Ingestion":
             st.subheader("Extracted Data (Consolidated)")
             st.dataframe(df, use_container_width=True)
             
-            # Database Integration
-            st.subheader("Database Persistence")
-            if st.button("💾 Save All Extracted Data to Database", type="primary"):
+            # Database Integration (Now CSV)
+            st.subheader("CSV Persistence")
+            if st.button("💾 Save All Extracted Data to CSV", type="primary"):
                 save_progress = st.progress(0)
                 status_text = st.empty()
                 
                 try:
-                    db = SessionLocal()
                     upload_uuid = str(uuid.uuid4())
                     
                     # Deduplication: Find unique (tahun, ba) pairs in current batch
                     unique_pairs = set((entry.get('tahun_anggaran', fiscal_year), entry.get('kode_ba')) for entry in all_results)
                     
-                    for yr, ba in unique_pairs:
-                        db.query(ExtractedEntry).filter(
-                            ExtractedEntry.tahun_anggaran == yr,
-                            ExtractedEntry.kode_ba == ba,
-                            ExtractedEntry.data_category == data_category
-                        ).delete()
-                    
-                    db.flush()
-                    
-                    total = len(all_results)
-                    for i, entry in enumerate(all_results):
-                        db_entry = ExtractedEntry(
-                            upload_id=upload_uuid,
-                            data_category=data_category,
-                            kode_akun=entry.get('kode_akun'),
-                            uraian_akun=entry.get('uraian_akun'),
-                            nilai=entry.get('nilai'),
-                            tahun_anggaran=entry.get('tahun_anggaran', fiscal_year),
-                            kode_ba=entry.get('kode_ba'),
-                            uraian_ba=entry.get('uraian_ba')
-                        )
-                        db.add(db_entry)
+                    # Load existing if exists
+                    if os.path.exists(settings.ENTRIES_CSV):
+                        df_existing = pd.read_csv(settings.ENTRIES_CSV)
+                        # Ensure types match for filtering
+                        df_existing['tahun_anggaran'] = df_existing['tahun_anggaran'].astype(int)
+                        df_existing['kode_ba'] = df_existing['kode_ba'].astype(str).str.zfill(3)
                         
-                        if i % 100 == 0 or i == total - 1:
-                            save_progress.progress((i + 1) / total)
-                            status_text.text(f"Saving entry {i+1} of {total}...")
+                        # Filter out existing data for the same pairs and category
+                        for yr, ba in unique_pairs:
+                            df_existing = df_existing[~(
+                                (df_existing['tahun_anggaran'] == int(yr)) & 
+                                (df_existing['kode_ba'] == str(ba).zfill(3)) &
+                                (df_existing['data_category'] == data_category)
+                            )]
+                    else:
+                        df_existing = pd.DataFrame()
+
+                    new_data = []
+                    for i, entry in enumerate(all_results):
+                        new_data.append({
+                            "upload_id": upload_uuid,
+                            "data_category": data_category,
+                            "kode_akun": entry.get('kode_akun'),
+                            "uraian_akun": entry.get('uraian_akun'),
+                            "nilai": entry.get('nilai'),
+                            "tahun_anggaran": int(entry.get('tahun_anggaran', fiscal_year)),
+                            "kode_ba": str(entry.get('kode_ba')).zfill(3),
+                            "uraian_ba": entry.get('uraian_ba')
+                        })
+                        
+                        if i % 100 == 0 or i == len(all_results) - 1:
+                            save_progress.progress((i + 1) / len(all_results))
+                            status_text.text(f"Preparing entry {i+1} of {len(all_results)}...")
                     
-                    db.commit()
-                    st.success(f"Successfully saved {total} entries! (Batch ID: {upload_uuid})")
-                    db.close()
+                    df_new = pd.DataFrame(new_data)
+                    df_final = pd.concat([df_existing, df_new], ignore_index=True)
+                    df_final.to_csv(settings.ENTRIES_CSV, index=False)
+                    
+                    st.success(f"Successfully saved {len(all_results)} entries to CSV! (Batch ID: {upload_uuid})")
                 except Exception as e:
                     st.error(f"Failed to save data: {e}")
-                    if 'db' in locals():
-                        db.rollback()
-                        db.close()
             
             # Export Option
             csv = df.to_csv(index=False).encode('utf-8')

@@ -6,8 +6,7 @@ import os
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
-from app.db.session import SessionLocal
-from app.models.extracted_data import OrganizationPIC
+from app.core.config import settings
 
 def seed_pics():
     # Detect project root (parent of backend folder)
@@ -33,26 +32,19 @@ def seed_pics():
         how='inner'
     )
     
-    db = SessionLocal()
     try:
-        db.query(OrganizationPIC).delete()
+        # Prepare final columns
+        df_pic = pd.DataFrame()
+        df_pic['kode_ba'] = df_joined['kode_ba'].astype(str).str.zfill(3)
+        df_pic['nama_pic'] = df_joined['nama']
+        df_pic['nip_pic'] = df_joined['nip'].astype(str)
+        df_pic['jabatan_pic'] = df_joined['jabatan']
         
-        for _, row in df_joined.iterrows():
-            pic = OrganizationPIC(
-                kode_ba=str(row['kode_ba']).zfill(3),
-                nama_pic=row['nama'],
-                nip_pic=str(row['nip']),
-                jabatan_pic=row['jabatan']
-            )
-            db.add(pic)
-        
-        db.commit()
-        print(f"Successfully seeded {len(df_joined)} PIC records.")
+        # Save to CSV
+        df_pic.to_csv(settings.PIC_CSV, index=False)
+        print(f"Successfully saved {len(df_pic)} PIC records to {settings.PIC_CSV}.")
     except Exception as e:
-        db.rollback()
         print(f"Error seeding PICs: {e}")
-    finally:
-        db.close()
 
 if __name__ == "__main__":
     seed_pics()
