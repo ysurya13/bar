@@ -517,7 +517,8 @@ elif page == "Face BAR":
         st.subheader("Asset Balance Summary")
         
         # 1. Load Reference Mapping
-        ref_path = "/Users/yusufpradana/Documents/apps/bar/referensi/referensi_face_bar.xlsx"
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        ref_path = os.path.join(project_root, "referensi", "referensi_face_bar.xlsx")
         df_ref = pd.read_excel(ref_path)
         df_ref['kode_akun_str'] = df_ref['kode_akun'].astype(str)
         

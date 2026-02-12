@@ -7,7 +7,9 @@ sys.path.append(os.path.join(os.getcwd(), "backend"))
 
 from app.services.extraction.factory import ExtractorFactory
 
-base_path = "/Users/yusufpradana/Documents/apps/bar/excel/2023"
+# Determine project root and base path
+base_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = os.path.join(base_dir, "excel", "2023")
 files_to_test = {
     "Neraca": "Neraca/Laporan lap_bmn_nrc kl  kode 001.xlsx",
     "Saldo Awal": "Saldo Awal/Laporan lap_bmn_nrc_sawal kl  kode 001.xlsx",

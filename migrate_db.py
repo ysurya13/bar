@@ -1,7 +1,9 @@
 import sqlite3
 import os
 
-db_path = "/Users/yusufpradana/Documents/apps/bar/sql_app.db"
+# Determine project root and db path
+base_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(base_dir, "sql_app.db")
 
 def migrate():
     if not os.path.exists(db_path):

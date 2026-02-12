@@ -1,7 +1,9 @@
 import pandas as pd
 import os
 
-base_path = "/Users/yusufpradana/Documents/apps/bar/excel/2023"
+# Determine project root and base path
+base_dir = os.path.dirname(os.path.abspath(__file__))
+base_path = os.path.join(base_dir, "excel", "2023")
 files_to_inspect = {
     "Neraca": "Neraca/Laporan lap_bmn_nrc kl  kode 001.xlsx",
     "Penyusutan": "Penyusutan/PENYUSUTAN INTRAKOMPTABEL/Laporan lap_susut kl intrakomptabel kelompok kode 001.xlsx",
