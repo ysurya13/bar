@@ -12,8 +12,8 @@ class BARPDFGenerator:
             'Header',
             parent=self.styles['Heading1'],
             alignment=1, # Center
-            fontSize=14,
-            spaceAfter=12
+            fontSize=12,
+            spaceAfter=6
         )
         self.title_style = ParagraphStyle(
             'Title',
@@ -21,14 +21,19 @@ class BARPDFGenerator:
             alignment=1,
             fontSize=12,
             bold=True,
-            spaceAfter=10
+            spaceAfter=6
         )
         self.normal_style = self.styles['Normal']
         
     def generate_bar_pdf(self, metadata, summary_df, ba_name, year, counterpart_pic=None):
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=30, leftMargin=30, topMargin=30, bottomMargin=30)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
         elements = []
+        
+        # Adjust normal style to size 11 and justify
+        self.normal_style.fontSize = 11
+        self.normal_style.leading = 14
+        self.normal_style.alignment = 4  # TA_JUSTIFY
         
         # 1. Header
         elements.append(Paragraph("BERITA ACARA", self.header_style))
@@ -73,7 +78,7 @@ class BARPDFGenerator:
         pihak_1 = f"""
         <b>I. Pihak Pertama</b><br/>
         Nama &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p1_name}<br/>
-        NIP &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p1_nip}<br/>
+        NIP &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p1_nip}<br/>
         Jabatan &nbsp;&nbsp;&nbsp;: {p1_jab}<br/>
         Dalam hal ini bertindak untuk dan atas nama Pengelola Barang pada Kantor Pusat Direktorat Jenderal Kekayaan Negara.
         """
@@ -88,7 +93,7 @@ class BARPDFGenerator:
         pihak_2 = f"""
         <b>II. Pihak Kedua</b><br/>
         Nama &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p2_name}<br/>
-        NIP &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p2_nip}<br/>
+        NIP &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: {p2_nip}<br/>
         Jabatan &nbsp;&nbsp;&nbsp;: {p2_jab}<br/>
         Dalam hal ini bertindak untuk dan atas nama penanggung jawab Unit Akuntansi Pengguna Barang pada {ba_name}.
         """
@@ -131,20 +136,20 @@ class BARPDFGenerator:
         total_akhir = summary_df['Saldo Akhir'].sum()
         table_data.append(["TOTAL (I + II)", fmt(total_awal), fmt(total_mutasi), fmt(total_akhir)])
         
-        # Table Styling
-        t = Table(table_data, colWidths=[2.5*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+        # Table Styling - Utilizing ~6.8 inches width
+        t = Table(table_data, colWidths=[2.8*inch, 1.35*inch, 1.35*inch, 1.35*inch])
         t.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTNAME', (0, 1), (0, -1), 'Helvetica'), # Labels
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
             ('BACKGROUND', (0, 1), (-1, 1), colors.whitesmoke), # Part I header
             ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             # TOTAL Row bold
             ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
             ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
@@ -170,18 +175,54 @@ class BARPDFGenerator:
         elements.append(Spacer(1, 0.4 * inch))
         
         # 4. Signatures
+        # Calculate available width (8.27in - 2*0.7in margins = 6.87in)
+        # Divide equally: ~3.43in each
+        col_width = 3.4 * inch
+        
+        # Style for signature cells
+        sig_cell_style = ParagraphStyle(
+            'SigCell',
+            parent=self.normal_style,
+            alignment=1, # Center
+            fontSize=11,
+            leading=13
+        )
+        
+        sig_grey_style = ParagraphStyle(
+            'SigGrey',
+            parent=sig_cell_style,
+            textColor=colors.grey,
+            fontSize=8,
+            italic=True
+        )
+
+        # Prepare Jabatan Paragraphs (to support wrapping)
+        p1_jab_para = Paragraph(counterpart_pic.jabatan_pic if (counterpart_pic and counterpart_pic.jabatan_pic) else "Petugas Akuntansi,", sig_cell_style)
+        p2_jab_para = Paragraph(metadata.jabatan_petugas if (metadata and metadata.jabatan_petugas) else "Penanggung Jawab,", sig_cell_style)
+        
+        # Electronic Sign Labels
+        is_p2_elektronik = metadata and metadata.jenis_ttd == "Elektronik"
+        p2_esign = Paragraph("<i>Ditandatangani secara elektronik</i>", sig_grey_style) if is_p2_elektronik else ""
+        p1_esign = Paragraph("<i>Ditandatangani secara elektronik</i>", sig_grey_style) # Default PKKN is elektronik
+
         sig_data = [
-            [metadata.jabatan_petugas if (metadata and metadata.jabatan_petugas) else "Penanggung Jawab,", "", counterpart_pic.jabatan_pic if (counterpart_pic and counterpart_pic.jabatan_pic) else "Petugas Akuntansi,"],
-            ["", "", ""],
-            ["", "", ""],
-            ["", "", ""],
-            [f"( {metadata.nama_petugas if (metadata and metadata.nama_petugas) else '................'} )", "", f"( {counterpart_pic.nama_pic if (counterpart_pic and counterpart_pic.nama_pic) else '................'} )"],
-            [f"NIP {metadata.nip_petugas if (metadata and metadata.nip_petugas) else '................'}", "", f"NIP {counterpart_pic.nip_pic if (counterpart_pic and counterpart_pic.nip_pic) else '................'}"]
+            [p2_jab_para, p1_jab_para],
+            ["", ""],
+            ["", ""],
+            ["", ""],
+            [p2_esign, p1_esign],
+            [Paragraph(f"<b>( {metadata.nama_petugas if (metadata and metadata.nama_petugas) else '................'} )</b>", sig_cell_style), 
+             Paragraph(f"<b>( {counterpart_pic.nama_pic if (counterpart_pic and counterpart_pic.nama_pic) else '................'} )</b>", sig_cell_style)],
+            [Paragraph(f"NIP {metadata.nip_petugas if (metadata and metadata.nip_petugas) else '................'}", sig_cell_style), 
+             Paragraph(f"NIP {counterpart_pic.nip_pic if (counterpart_pic and counterpart_pic.nip_pic) else '................'}", sig_cell_style)]
         ]
-        sig_table = Table(sig_data, colWidths=[2.5*inch, 1.0*inch, 2.5*inch])
+        
+        sig_table = Table(sig_data, colWidths=[col_width, col_width])
         sig_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 0), # Row 1 (Jabatan)
+            ('BOTTOMPADDING', (0, 1), (-1, 1), 5), # Row 2 (E-sign label)
+            ('BOTTOMPADDING', (0, 3), (-1, 3), 15), # Increase gap before name
         ]))
         elements.append(sig_table)
         
