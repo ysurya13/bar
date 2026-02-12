@@ -118,7 +118,7 @@ st.set_page_config(
 )
 
 # Utility: Load data from DB
-def load_db_data():
+def load_db_data() -> pd.DataFrame:
     db = SessionLocal()
     try:
         query = db.query(ExtractedEntry).all()
@@ -292,7 +292,7 @@ elif page == "Analytics Dashboard":
     st.markdown("Analyze financial assets across Years and Organizations.")
 
     # Load data
-    df_db = load_db_data()
+    df_db: pd.DataFrame = load_db_data()
 
     if df_db.empty:
         st.warning("No data found in database. Please go to 'Data Ingestion' and upload some files first.")
@@ -451,7 +451,7 @@ elif page == "Face BAR":
     st.title("📄 Face BAR (Berita Acara Rekonsiliasi)")
     st.markdown("Enter reporting metadata and signing officer details.")
 
-    df_db = load_db_data()
+    df_db: pd.DataFrame = load_db_data()
     if df_db.empty:
         st.warning("No data found. Please upload data first.")
     else:
@@ -516,9 +516,24 @@ elif page == "Face BAR":
         st.divider()
         st.subheader("Asset Balance Summary")
         
-        # 1. Load Reference Mapping
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        ref_path = os.path.join(project_root, "referensi", "referensi_face_bar.xlsx")
+        # 1. Load Reference Mapping (Robust path detection for deployment)
+        filename = "referensi_face_bar.xlsx"
+        possible_paths = [
+            os.path.join(os.getcwd(), "referensi", filename),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "referensi", filename),
+            os.path.join("referensi", filename)
+        ]
+        
+        ref_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                ref_path = path
+                break
+        
+        if not ref_path:
+            st.error(f"Reference file '{filename}' not found. Searched in: {possible_paths}")
+            st.stop()
+            
         df_ref = pd.read_excel(ref_path)
         df_ref['kode_akun_str'] = df_ref['kode_akun'].astype(str)
         
@@ -679,7 +694,7 @@ elif page == "Lampiran Kualitatif":
     st.title("📝 Lampiran Kualitatif")
     st.markdown("Provide qualitative analysis and explanations for the BAR.")
     
-    df_db = load_db_data()
+    df_db: pd.DataFrame = load_db_data()
     if df_db.empty:
         st.warning("No data found. Please upload data first.")
     else:
