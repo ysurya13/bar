@@ -38,4 +38,29 @@ class BARMetadata(Base):
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+class BARNonNeraca(Base):
+    __tablename__ = "bar_non_neraca"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kode_ba = Column(String, index=True)
+    tahun_anggaran = Column(Integer, index=True)
+    label = Column(String)
+    nilai_awal = Column(Numeric(precision=20, scale=2), default=0.0)
+    nilai_akhir = Column(Numeric(precision=20, scale=2), default=0.0)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class OrganizationPIC(Base):
+    __tablename__ = "organization_pics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    kode_ba = Column(String, index=True)
+    nama_pic = Column(String)
+    nip_pic = Column(String)
+    jabatan_pic = Column(String)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

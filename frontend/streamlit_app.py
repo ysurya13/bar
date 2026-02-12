@@ -12,7 +12,58 @@ sys.path.append(backend_path)
 
 from app.services.extraction.factory import ExtractorFactory
 from app.db.session import SessionLocal
-from app.models.extracted_data import ExtractedEntry, BARMetadata
+from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC
+from app.services.reporting.pdf_generator import BARPDFGenerator
+
+# Utility: Get Organization PIC (Counterpart)
+def get_organization_pic(kode_ba):
+    db = SessionLocal()
+    try:
+        return db.query(OrganizationPIC).filter(
+            OrganizationPIC.kode_ba == kode_ba
+        ).first()
+    finally:
+        db.close()
+
+# Utility: Load Non-Neraca Data
+def load_non_neraca_data(kode_ba, tahun):
+    db = SessionLocal()
+    try:
+        results = db.query(BARNonNeraca).filter(
+            BARNonNeraca.kode_ba == kode_ba,
+            BARNonNeraca.tahun_anggaran == tahun
+        ).all()
+        return {r.label: {'awal': float(r.nilai_awal), 'akhir': float(r.nilai_akhir)} for r in results}
+    finally:
+        db.close()
+
+# Utility: Save Non-Neraca Data
+def save_non_neraca_data(kode_ba, tahun, labels_values):
+    db = SessionLocal()
+    try:
+        # Delete existing for this BA/Year
+        db.query(BARNonNeraca).filter(
+            BARNonNeraca.kode_ba == kode_ba,
+            BARNonNeraca.tahun_anggaran == tahun
+        ).delete()
+        
+        for label, vals in labels_values.items():
+            db_entry = BARNonNeraca(
+                kode_ba=kode_ba,
+                tahun_anggaran=tahun,
+                label=label,
+                nilai_awal=vals['awal'],
+                nilai_akhir=vals['akhir']
+            )
+            db.add(db_entry)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        st.error(f"Error saving non-neraca data: {e}")
+        return False
+    finally:
+        db.close()
 
 # Utility: Load BAR Metadata
 def load_bar_metadata(kode_ba, tahun):
@@ -414,19 +465,35 @@ elif page == "Face BAR":
         with col2:
             sel_year = st.selectbox("Select Fiscal Year", all_years)
 
-        # Load existing metadata
+        # Load existing metadata and counterpart
         existing_meta = load_bar_metadata(sel_ba_code, sel_year)
+        counterpart_pic = get_organization_pic(sel_ba_code)
         
         st.divider()
         st.subheader("Current Status")
-        if existing_meta and existing_meta.nama_petugas:
-            st.success(f"""
-            **Assigned Officer:** {existing_meta.nama_petugas}  
-            **NIP:** {existing_meta.nip_petugas}  
-            **Signature:** {existing_meta.jenis_ttd}
-            """)
-        else:
-            st.info("⚠️ **No Officers Assigned** for this period.")
+        col_st1, col_st2 = st.columns(2)
+        
+        with col_st1:
+            st.markdown("##### **Assigned Officer (K/L)**")
+            if existing_meta and existing_meta.nama_petugas:
+                st.success(f"""
+                **Name:** {existing_meta.nama_petugas}  
+                **NIP:** {existing_meta.nip_petugas}  
+                **Signature:** {existing_meta.jenis_ttd}
+                """)
+            else:
+                st.info("⚠️ **No Officer Assigned**")
+                
+        with col_st2:
+            st.markdown("##### **Counterpart Officer (PKKN)**")
+            if counterpart_pic:
+                st.success(f"""
+                **Name:** {counterpart_pic.nama_pic}  
+                **NIP:** {counterpart_pic.nip_pic}  
+                **Jabatan:** {counterpart_pic.jabatan_pic}
+                """)
+            else:
+                st.info("⚠️ **No Counterpart Found**")
 
         st.subheader("Signing Officer Details")
         
@@ -444,11 +511,164 @@ elif page == "Face BAR":
 
         st.divider()
         st.subheader("Asset Balance Summary")
-        st.info("The asset balance table will be implemented based on the next requirements. (Placeholder)")
         
-        # Show what we've got
+        # 1. Load Reference Mapping
+        ref_path = "/Users/yusufpradana/Documents/apps/bar/referensi/referensi_face_bar.xlsx"
+        df_ref = pd.read_excel(ref_path)
+        df_ref['kode_akun_str'] = df_ref['kode_akun'].astype(str)
+        
+        # 2. Filter DB data for selected BA/Year
+        df_target = df_db[
+            (df_db['kode_ba'] == sel_ba_code) & 
+            (df_db['tahun_anggaran'] == sel_year)
+        ].copy()
+        df_target['kode_akun_str'] = df_target['kode_akun'].astype(str)
+        
+        # Merge with reference to get report labels
+        df_mapped = pd.merge(df_target, df_ref, on='kode_akun_str', how='inner')
+        
+        # Part I Labels
+        part_i_labels = [
+            "Persediaan", "Tanah", "Peralatan dan Mesin", "Gedung dan Bangunan",
+            "Jalan, Irigasi, dan Jaringan", "Aset Tetap Lainnya", "Konstruksi Dalam Pengerjaan",
+            "Aset Konsesi Jasa Partisipasi Pemerintah", "Aset Konsesi Jasa Pemerintah Partisipasi Mitra (BMN)", 
+            "Akum. Penyusutan Aset Tetap", "Properti Investasi", "Akum. Penyusutan Properti Investasi",
+            "Kemitraan Dengan Pihak Ketiga", "Aset Tak Berwujud", "Aset lain-lain",
+            "Akum. Penyusutan Aset Lainnya"
+        ]
+        
+        part_i_data = {}
+        for label in part_i_labels:
+            mask_label = df_mapped['akun_spesifik_face_bar'] == label
+            awal = float(df_mapped[mask_label & (df_mapped['data_category'] == 'Saldo Awal')]['nilai'].sum())
+            akhir = float(df_mapped[mask_label & (df_mapped['data_category'] == 'Neraca')]['nilai'].sum())
+            part_i_data[label] = {'awal': awal, 'akhir': akhir}
+
+        # 4. Load Part II existing data
+        part_ii_labels = [
+            "BMN Ekstrakomptabel", "Akum. Peny. Ekstrakomptabel",
+            "BPYBDS", "BARANG HILANG", "BARANG RUSAK BERAT",
+            "BARANG PERSEDIAAN YANG DISERAHKAN", "BARANG PERSEDIAAN RUSAK/USANG"
+        ]
+        existing_part_ii = load_non_neraca_data(sel_ba_code, sel_year)
+        
+        # 5. UI: Part II Manual Entry Form
+        st.markdown("#### Part II - BMN Non Neraca (Manual Input)")
+        new_part_ii_values = {}
+        with st.form("non_neraca_form"):
+            for i, label in enumerate(part_ii_labels):
+                st.markdown(f"**{label}**")
+                col_awal, col_akhir = st.columns(2)
+                with col_awal:
+                    v_awal = st.number_input(
+                        f"Saldo Awal", 
+                        value=float(existing_part_ii.get(label, {}).get('awal', 0.0)),
+                        format="%.2f",
+                        key=f"val_awal_{label}"
+                    )
+                with col_akhir:
+                    v_akhir = st.number_input(
+                        f"Saldo Akhir", 
+                        value=float(existing_part_ii.get(label, {}).get('akhir', 0.0)),
+                        format="%.2f",
+                        key=f"val_akhir_{label}"
+                    )
+                new_part_ii_values[label] = {'awal': v_awal, 'akhir': v_akhir}
+                st.divider()
+            
+            save_ii = st.form_submit_button("💾 Save Non-Neraca Data", type="secondary")
+            if save_ii:
+                if save_non_neraca_data(sel_ba_code, sel_year, new_part_ii_values):
+                    st.success("Non-Neraca values saved!")
+                    st.rerun()
+
+        # 6. Display Consolidated Results
+        st.markdown("#### Consolidated Asset Balance Summary")
+        
+        summary_rows = []
+        def fmt(x): return f"{x:,.2f}"
+
+        # Part I Rows
+        for label in part_i_labels:
+            vals = part_i_data[label]
+            awal = float(vals['awal'])
+            akhir = float(vals['akhir'])
+            mutasi = akhir - awal
+            summary_rows.append({
+                "Category": label,
+                "Saldo Awal": awal,
+                "Mutasi": mutasi,
+                "Saldo Akhir": akhir,
+                "Part": "I - Neraca"
+            })
+            
+        # Part II Rows
+        for label in part_ii_labels:
+            vals = new_part_ii_values[label]
+            awal = float(vals['awal'])
+            akhir = float(vals['akhir'])
+            mutasi = akhir - awal
+            summary_rows.append({
+                "Category": label,
+                "Saldo Awal": awal,
+                "Mutasi": mutasi,
+                "Saldo Akhir": akhir,
+                "Part": "II - Non Neraca"
+            })
+            
+        df_summary = pd.DataFrame(summary_rows)
+        
+        # Calculate Totals
+        total_awal_i = float(sum(r['Saldo Awal'] for r in summary_rows if r['Part'] == "I - Neraca"))
+        total_mutasi_i = float(sum(r['Mutasi'] for r in summary_rows if r['Part'] == "I - Neraca"))
+        total_akhir_i = float(sum(r['Saldo Akhir'] for r in summary_rows if r['Part'] == "I - Neraca"))
+        
+        total_awal_ii = float(sum(r['Saldo Awal'] for r in summary_rows if r['Part'] == "II - Non Neraca"))
+        total_mutasi_ii = float(sum(r['Mutasi'] for r in summary_rows if r['Part'] == "II - Non Neraca"))
+        total_akhir_ii = float(sum(r['Saldo Akhir'] for r in summary_rows if r['Part'] == "II - Non Neraca"))
+        
+        st.dataframe(df_summary, use_container_width=True)
+        
+        # Metrics Display
+        st.markdown("---")
+        m_col1, m_col2, m_col3 = st.columns(3)
+        with m_col1:
+            st.write("**Total Part I (Neraca)**")
+            st.metric("Awal", fmt(total_awal_i))
+            st.metric("Mutasi", fmt(total_mutasi_i), delta=fmt(total_mutasi_i))
+            st.metric("Akhir", fmt(total_akhir_i))
+            
+        with m_col2:
+            st.write("**Total Part II (Non-Neraca)**")
+            st.metric("Awal", fmt(total_awal_ii))
+            st.metric("Mutasi", fmt(total_mutasi_ii), delta=fmt(total_mutasi_ii))
+            st.metric("Akhir", fmt(total_akhir_ii))
+
+        with m_col3:
+            st.write("**GRAND TOTAL (I + II)**")
+            st.metric("Total Awal", fmt(total_awal_i + total_awal_ii))
+            st.metric("Total Mutasi", fmt(total_mutasi_i + total_mutasi_ii))
+            st.metric("Total Akhir", fmt(total_akhir_i + total_akhir_ii))
+        
+        st.divider()
         st.markdown(f"**Target BA:** {sel_ba_name} ({sel_ba_code})")
         st.markdown(f"**Fiscal Year:** {sel_year}")
+        
+        # 7. PDF Download
+        st.divider()
+        st.subheader("Download Report")
+        existing_meta = load_bar_metadata(sel_ba_code, sel_year)
+        counterpart_pic = get_organization_pic(sel_ba_code)
+        
+        pdf_gen = BARPDFGenerator()
+        pdf_bytes = pdf_gen.generate_bar_pdf(existing_meta, df_summary, sel_ba_name, sel_year, counterpart_pic=counterpart_pic)
+        
+        st.download_button(
+            label="📄 Download BAR (PDF)",
+            data=pdf_bytes,
+            file_name=f"BAR_{sel_ba_code}_{sel_year}.pdf",
+            mime="application/pdf"
+        )
 
 elif page == "Lampiran Kualitatif":
     st.title("📝 Lampiran Kualitatif")
