@@ -8,6 +8,7 @@ class ExtractedEntry(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     upload_id = Column(String, index=True)  # Grouping by upload session/batch
+    data_category = Column(String, index=True)  # e.g., "Neraca", "Saldo Awal", "Penyusutan"
     
     kode_akun = Column(String, index=True)
     uraian_akun = Column(String)  # Denormalized for convenience

@@ -33,6 +33,7 @@ def load_db_data():
             data.append({
                 "id": entry.id,
                 "upload_id": entry.upload_id,
+                "data_category": entry.data_category,
                 "kode_akun": entry.kode_akun,
                 "uraian_akun": entry.uraian_akun,
                 "nilai": float(entry.nilai) if entry.nilai else 0.0,
@@ -132,10 +133,23 @@ if page == "Data Ingestion":
                     db = SessionLocal()
                     upload_uuid = str(uuid.uuid4())
                     
+                    # Deduplication: Find unique (tahun, ba) pairs in current batch
+                    unique_pairs = set((entry.get('tahun_anggaran', fiscal_year), entry.get('kode_ba')) for entry in all_results)
+                    
+                    for yr, ba in unique_pairs:
+                        db.query(ExtractedEntry).filter(
+                            ExtractedEntry.tahun_anggaran == yr,
+                            ExtractedEntry.kode_ba == ba,
+                            ExtractedEntry.data_category == data_category
+                        ).delete()
+                    
+                    db.flush()
+                    
                     total = len(all_results)
                     for i, entry in enumerate(all_results):
                         db_entry = ExtractedEntry(
                             upload_id=upload_uuid,
+                            data_category=data_category,
                             kode_akun=entry.get('kode_akun'),
                             uraian_akun=entry.get('uraian_akun'),
                             nilai=entry.get('nilai'),
@@ -182,20 +196,24 @@ elif page == "Analytics Dashboard":
         st.sidebar.divider()
         st.sidebar.header("Filters")
         
-        all_bas = sorted(df_db['uraian_ba'].unique())
+        all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
         selected_ba = st.sidebar.multiselect("Select Organization (BA)", all_bas, default=all_bas)
         
-        all_years = sorted(df_db['tahun_anggaran'].unique())
+        all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
         selected_years = st.sidebar.multiselect("Select Years", all_years, default=all_years)
         
-        all_categories = sorted(df_db['jenis_aset'].unique())
-        selected_categories = st.sidebar.multiselect("Select Asset Types", all_categories, default=all_categories)
+        all_cats = sorted([str(x) for x in df_db['data_category'].unique() if pd.notna(x)])
+        selected_cats = st.sidebar.multiselect("Select Data Category", all_cats, default=all_cats)
+        
+        all_assets = sorted([str(x) for x in df_db['jenis_aset'].unique() if pd.notna(x)])
+        selected_assets = st.sidebar.multiselect("Select Asset Types", all_assets, default=all_assets)
 
         # Apply Filters
         mask = (
             df_db['uraian_ba'].isin(selected_ba) & 
             df_db['tahun_anggaran'].isin(selected_years) &
-            df_db['jenis_aset'].isin(selected_categories)
+            df_db['data_category'].isin(selected_cats) &
+            df_db['jenis_aset'].isin(selected_assets)
         )
         filtered_df = df_db[mask]
 
@@ -248,7 +266,82 @@ elif page == "Analytics Dashboard":
             fig_ba.update_layout(xaxis={'categoryorder':'total descending'})
             st.plotly_chart(fig_ba, use_container_width=True)
 
+            # Row 3: Waterfall Analysis
+            st.divider()
+            st.header("🌊 Period Change Analysis (Waterfall)")
+            st.markdown("Comparing **Saldo Awal** (Start) vs **Neraca** (End) for the selected organizations.")
+            
+            # Select single year for waterfall
+            if len(selected_years) > 0:
+                wf_year = st.selectbox("Select Year for Waterfall Analysis", selected_years, index=0)
+                
+                # Filter data for this year and selected organizations
+                wf_df = df_db[
+                    (df_db['tahun_anggaran'] == wf_year) & 
+                    (df_db['uraian_ba'].isin(selected_ba))
+                ]
+                
+                # Pivot to get categories and values per type
+                start_mask = wf_df['data_category'] == 'Saldo Awal'
+                end_mask = wf_df['data_category'] == 'Neraca'
+                
+                start_vals = wf_df[start_mask].groupby('jenis_aset')['nilai'].sum()
+                end_vals = wf_df[end_mask].groupby('jenis_aset')['nilai'].sum()
+                
+                # Get unique asset types present in either
+                all_asset_types = sorted(list(set(start_vals.index) | set(end_vals.index)))
+                
+                if not all_asset_types:
+                    st.info("No 'Saldo Awal' or 'Neraca' data found for the selected filters to perform waterfall analysis.")
+                else:
+                    # Calculate Deltas
+                    deltas = []
+                    measures = []
+                    x_labels = ["Total Saldo Awal"]
+                    y_vals = [start_vals.sum()]
+                    measures.append("absolute")
+                    
+                    total_start = start_vals.sum()
+                    running_total = total_start
+                    
+                    for asset_type in all_asset_types:
+                        s = start_vals.get(asset_type, 0)
+                        e = end_vals.get(asset_type, 0)
+                        delta = e - s
+                        if delta != 0:
+                            x_labels.append(asset_type)
+                            y_vals.append(delta)
+                            measures.append("relative")
+                            running_total += delta
+                    
+                    x_labels.append("Total Neraca")
+                    y_vals.append(end_vals.sum()) # Actual total neraca
+                    measures.append("total")
+                    
+                    import plotly.graph_objects as go
+                    fig_wf = go.Figure(go.Waterfall(
+                        name="Asset Change",
+                        orientation="v",
+                        measure=measures,
+                        x=x_labels,
+                        textposition="outside",
+                        text=[f"{y:,.0f}" for y in y_vals],
+                        y=y_vals,
+                        connector={"line":{"color":"rgb(63, 63, 63)"}},
+                        totals={"marker":{"color":"deepskyblue"}}
+                    ))
+
+                    fig_wf.update_layout(
+                        title=f"Asset Change Bridge: Saldo Awal vs Neraca ({wf_year})",
+                        showlegend=False,
+                        height=600
+                    )
+                    st.plotly_chart(fig_wf, use_container_width=True)
+            else:
+                st.info("Please select at least one year in filters to see waterfall analysis.")
+
             # Detailed Table
+            st.divider()
             st.subheader("Filtered Asset Details")
             st.dataframe(filtered_df, use_container_width=True)
 
