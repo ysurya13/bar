@@ -32,6 +32,7 @@ class BARMetadata(Base):
     
     nama_petugas = Column(String)
     nip_petugas = Column(String)
+    jabatan_petugas = Column(String)
     jenis_ttd = Column(String)  # "Elektronik" or "Manual"
     
     catatan_kualitatif = Column(String, nullable=True)

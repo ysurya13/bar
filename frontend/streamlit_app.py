@@ -77,7 +77,7 @@ def load_bar_metadata(kode_ba, tahun):
         db.close()
 
 # Utility: Save BAR Metadata
-def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, ttd_type=None, catatan=None):
+def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, jabatan=None, ttd_type=None, catatan=None):
     db = SessionLocal()
     try:
         existing = db.query(BARMetadata).filter(
@@ -88,6 +88,7 @@ def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, ttd_type=None, catata
         if existing:
             if nama is not None: existing.nama_petugas = nama
             if nip is not None: existing.nip_petugas = nip
+            if jabatan is not None: existing.jabatan_petugas = jabatan
             if ttd_type is not None: existing.jenis_ttd = ttd_type
             if catatan is not None: existing.catatan_kualitatif = catatan
         else:
@@ -96,6 +97,7 @@ def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, ttd_type=None, catata
                 tahun_anggaran=tahun,
                 nama_petugas=nama,
                 nip_petugas=nip,
+                jabatan_petugas=jabatan,
                 jenis_ttd=ttd_type,
                 catatan_kualitatif=catatan
             )
@@ -479,6 +481,7 @@ elif page == "Face BAR":
                 st.success(f"""
                 **Name:** {existing_meta.nama_petugas}  
                 **NIP:** {existing_meta.nip_petugas}  
+                **Jabatan:** {existing_meta.jabatan_petugas}  
                 **Signature:** {existing_meta.jenis_ttd}
                 """)
             else:
@@ -500,12 +503,13 @@ elif page == "Face BAR":
         with st.form("face_bar_form"):
             nama = st.text_input("Officer Name", value=existing_meta.nama_petugas if existing_meta else "")
             nip = st.text_input("Officer Identification Number (NIP)", value=existing_meta.nip_petugas if existing_meta else "")
+            jabatan = st.text_input("Jabatan / Person in Charge", value=existing_meta.jabatan_petugas if existing_meta else "")
             ttd_type = st.radio("Signature Type", ["Elektronik", "Manual"], 
-                              index=0 if not existing_meta or existing_meta.jenis_ttd == "Elektronik" else 1)
+                               index=0 if not existing_meta or existing_meta.jenis_ttd == "Elektronik" else 1)
             
             submitted = st.form_submit_button("💾 Save BAR Metadata", type="primary")
             if submitted:
-                if save_bar_metadata(sel_ba_code, sel_year, nama=nama, nip=nip, ttd_type=ttd_type):
+                if save_bar_metadata(sel_ba_code, sel_year, nama=nama, nip=nip, jabatan=jabatan, ttd_type=ttd_type):
                     st.success("BAR Metadata saved successfully!")
                     st.rerun()
 
