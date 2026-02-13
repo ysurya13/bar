@@ -254,6 +254,7 @@ if page == "Data Ingestion":
                     db.flush()
                     
                     total = len(all_results)
+                    db_entries = []
                     for i, entry in enumerate(all_results):
                         db_entry = ExtractedEntry(
                             upload_id=upload_uuid,
@@ -265,12 +266,14 @@ if page == "Data Ingestion":
                             kode_ba=entry.get('kode_ba'),
                             uraian_ba=entry.get('uraian_ba')
                         )
-                        db.add(db_entry)
+                        db_entries.append(db_entry)
                         
-                        if i % 100 == 0 or i == total - 1:
+                        if (i + 1) % 100 == 0 or i == total - 1:
                             save_progress.progress((i + 1) / total)
-                            status_text.text(f"Saving entry {i+1} of {total}...")
+                            status_text.text(f"Preparing entry {i+1} of {total}...")
                     
+                    status_text.text(f"Pushing {total} entries to database...")
+                    db.bulk_save_objects(db_entries)
                     db.commit()
                     st.success(f"Successfully saved {total} entries! (Batch ID: {upload_uuid})")
                     db.close()
