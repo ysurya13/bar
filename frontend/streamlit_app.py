@@ -365,119 +365,276 @@ elif page == "Analytics Dashboard":
         if filtered_df.empty:
              st.info("No data matches the selected filters.")
         else:
-            # Summary Metrics
-            total_assets = filtered_df['nilai'].sum()
-            ba_count = len(filtered_df['uraian_ba'].unique())
+
+            # Helper for Trillion T formatting
+            def fmt_trillion(val):
+                return f"IDR {val / 1e12:,.1f} T"
+
+            # 1. Main KPI: Total Asset Value (Latest Year vs Start)
+            # Find the latest year in the filtered data
+            latest_year = filtered_df['tahun_anggaran'].max()
             
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Total Asset Value", f"IDR {total_assets:,.0f}")
-            m2.metric("Filtered Organizations", ba_count)
-            m3.metric("Filtered Records", len(filtered_df))
+            # Filter for latest year to show current status
+            latest_df = filtered_df[filtered_df['tahun_anggaran'] == latest_year]
+            
+            # Calculate Total Value (Neraca / Ending Balance)
+            # If 'data_category' includes 'Neraca', prefer that. Otherwise sum whatever is there.
+            if 'Neraca' in latest_df['data_category'].unique():
+                current_total = latest_df[latest_df['data_category'] == 'Neraca']['nilai'].sum()
+            else:
+                current_total = latest_df['nilai'].sum()
+                
+            # Calculate Comparison Value (Saldo Awal / Beginning Balance of same year)
+            # Or if not available, previous year Neraca could be an option, but requirement says "beginning of the year (YTD)"
+            val_df = df_db[df_db['tahun_anggaran'] == latest_year]['data_category'].unique()
+            if 'Saldo Awal' in val_df:
+                 # We go back to full DB for this year to ensure we find Saldo Awal even if filtered out by category
+                 start_total = df_db[
+                     (df_db['tahun_anggaran'] == latest_year) & 
+                     (df_db['data_category'] == 'Saldo Awal') &
+                     (df_db['uraian_ba'].isin(selected_ba)) # Maintain BA filter
+                 ]['nilai'].sum()
+            else:
+                 start_total = 0
+
+            # Calculate YTD Change
+            delta_val = current_total - start_total
+            delta_pct = (delta_val / start_total * 100) if start_total != 0 else 0
+            
+            # --- Main KPI Display ---
+            st.markdown(f"### 🏦 Posisi Aset per {latest_year}")
+            
+            kpi_cols = st.columns([1, 1, 2])
+            with kpi_cols[0]:
+                 st.metric(
+                    label="Total Asset Value",
+                    value=fmt_trillion(current_total),
+                    delta=f"{delta_pct:,.1f}% (YTD)",
+                    delta_color="normal"
+                 )
+            with kpi_cols[1]:
+                 st.metric(
+                    label="Organizations Contrib.",
+                    value=len(latest_df['uraian_ba'].unique()),
+                    delta=None
+                 )
+            
+            st.divider()
+            
+            # 2. Asset Breakdown (Categorical Data)
+            # Categories to display
+            target_categories = [
+                "Tanah", "Persediaan", "Peralatan & Mesin", "Gedung & Bangunan",
+                "Jalan, Irigasi & Jaringan", "Aset Tetap Lainnya", "KDP", "Lainnya"
+            ]
+            
+            # Map robustly to actual names in DB (using 'startswith' logic from get_asset_category if needed, 
+            # but here we rely on the 'jenis_aset' column we created earlier)
+            
+            st.markdown("### 📊 Asset Composition & Growth")
+            
+            # Create rows of 4 columns
+            row1 = st.columns(4)
+            row2 = st.columns(4)
+            
+            all_cols = row1 + row2
+            
+            for i, cat in enumerate(target_categories):
+                with all_cols[i]:
+                    # Current Value
+                    # Filter latest_df for this category
+                    # Note: 'jenis_aset' column was created via apply() earlier
+                    
+                    # Handle "Lainnya" separately or just match string
+                    if cat == "Lainnya":
+                        # Match anything not in the main list if needed, or just specific "Lainnya"
+                        # For simplicity, we assume exact match or strict mapping from get_asset_category
+                        cat_val = latest_df[latest_df['jenis_aset'] == cat]['nilai'].sum()
+                        
+                        # Start Value
+                        start_val = df_db[
+                            (df_db['tahun_anggaran'] == latest_year) & 
+                            (df_db['data_category'] == 'Saldo Awal') &
+                            (df_db['uraian_ba'].isin(selected_ba)) &
+                            (df_db['jenis_aset'] == cat)
+                        ]['nilai'].sum()
+                    else:
+                         # Relaxed matching or exact match
+                        cat_val = latest_df[latest_df['jenis_aset'] == cat]['nilai'].sum()
+                        start_val = df_db[
+                            (df_db['tahun_anggaran'] == latest_year) & 
+                            (df_db['data_category'] == 'Saldo Awal') &
+                            (df_db['uraian_ba'].isin(selected_ba)) &
+                            (df_db['jenis_aset'] == cat)
+                        ]['nilai'].sum()
+
+                    # Calculate KPI
+                    c_delta = cat_val - start_val
+                    c_pct = (c_delta / start_val * 100) if start_val != 0 else 0
+                    
+                    # Display Card
+                    with st.container(border=True):
+                        st.metric(
+                            label=cat,
+                            value=fmt_trillion(cat_val),
+                            delta=f"{c_pct:,.1f}%",
+                            delta_color="normal"
+                        )
 
             st.divider()
 
-            # Row 1: Asset Growth & Category Composition
-            c1, c2 = st.columns(2)
-
-            with c1:
-                st.subheader("Asset Value Growth by Year")
-                growth_df = filtered_df.groupby('tahun_anggaran')['nilai'].sum().reset_index()
-                fig_growth = px.line(
-                    growth_df, x='tahun_anggaran', y='nilai', 
-                    markers=True, title="Total Asset Value per Fiscal Year",
-                    labels={'nilai': 'Total Value (IDR)', 'tahun_anggaran': 'Year'}
-                )
-                st.plotly_chart(fig_growth, use_container_width=True)
-
-            with c2:
-                st.subheader("Asset Composition by Type")
-                comp_df = filtered_df.groupby('jenis_aset')['nilai'].sum().reset_index()
-                fig_comp = px.pie(
-                    comp_df, values='nilai', names='jenis_aset', 
-                    title="Asset Value distribution",
-                    hole=0.4
-                )
-                st.plotly_chart(fig_comp, use_container_width=True)
+            # Row: Asset Growth (Original Line Chart)
+            # Re-adding simpler version as per original flow, but below new KPIs
+            st.subheader("Historical Trend")
+            
+            growth_df = filtered_df.groupby('tahun_anggaran')['nilai'].sum().reset_index()
+            growth_df['year_str'] = growth_df['tahun_anggaran'].astype(int).astype(str)
+            growth_df['val_fmt'] = growth_df['nilai'].apply(fmt_trillion)
+            
+            fig_growth = px.line(
+                growth_df, x='year_str', y='nilai', 
+                text='val_fmt',
+                markers=True, 
+                labels={'nilai': 'Total Value (IDR)', 'year_str': 'Fiscal Year'}
+            )
+            fig_growth.update_traces(textposition="top center")
+            fig_growth.update_layout(
+                title={'text': "Total Asset Value History", 'x': 0.0},
+                xaxis=dict(type='category'), 
+                yaxis=dict(tickformat=".0s", title="Value (IDR)"), 
+                margin=dict(t=50, b=50)
+            )
+            st.plotly_chart(fig_growth, use_container_width=True)
 
             # Row 2: BA Comparison
-            st.subheader("Organization (BA) Comparison")
-            comparison_df = filtered_df.groupby('uraian_ba')['nilai'].sum().reset_index()
-            fig_ba = px.bar(
-                comparison_df, x='uraian_ba', y='nilai',
-                title="Total Assets per Organization",
-                labels={'nilai': 'Total Value (IDR)', 'uraian_ba': 'Organization Name'},
-                color='nilai', color_continuous_scale='Viridis'
-            )
-            fig_ba.update_layout(xaxis={'categoryorder':'total descending'})
-            st.plotly_chart(fig_ba, use_container_width=True)
+            with st.container(border=True):
+                st.subheader("Organization Comparison")
+                
+                col_filter, _ = st.columns([1, 3])
+                with col_filter:
+                    top_n = st.selectbox("Show Top Organizations", [5, 10, 20, 50], index=1)
+                
+                # Group By BA
+                comparison_df = filtered_df.groupby(['kode_ba', 'uraian_ba'])['nilai'].sum().reset_index()
+                comparison_df = comparison_df.sort_values(by='nilai', ascending=False).head(top_n)
+                
+                comparison_df['val_fmt'] = comparison_df['nilai'].apply(fmt_trillion)
+                # Explicitly cast kode_ba to string to ensure discrete axis
+                comparison_df['kode_ba'] = comparison_df['kode_ba'].astype(str)
+                
+                fig_ba = px.bar(
+                    comparison_df, x='kode_ba', y='nilai',
+                    hover_name='uraian_ba',
+                    text='val_fmt',
+                    labels={'nilai': 'Total Value (IDR)', 'kode_ba': 'Organization Code (Kode BA)'},
+                    color='nilai', color_continuous_scale='Viridis'
+                )
+                fig_ba.update_layout(
+                    title={'text': f"Top {top_n} Organizations by Asset Value", 'x': 0.0},
+                    xaxis={'categoryorder':'total descending', 'type': 'category'},
+                    margin=dict(t=50, b=50)
+                )
+                fig_ba.update_traces(textposition='outside')
+                st.plotly_chart(fig_ba, use_container_width=True)
+                
+                # Legend / Mapping Table
+                with st.expander("View Organization Name Mapping"):
+                    st.dataframe(
+                        comparison_df[['kode_ba', 'uraian_ba']].rename(columns={'kode_ba': 'Code', 'uraian_ba': 'Organization Name'}),
+                        hide_index=True,
+                        use_container_width=True
+                    )
 
             # Row 3: Waterfall Analysis
             st.divider()
-            st.header("🌊 Period Change Analysis (Waterfall)")
-            st.markdown("Comparing **Saldo Awal** (Start) vs **Neraca** (End) for the selected organizations.")
             
-            # Select single year for waterfall
-            if len(selected_years) > 0:
-                wf_year = st.selectbox("Select Year for Waterfall Analysis", selected_years, index=0)
+            with st.container(border=True):
+                st.header("🌊 Period Change Analysis (Waterfall)")
+                st.markdown("Comparing **Saldo Awal** (Start) vs **Neraca** (End) for the selected organizations.")
                 
-                # Filter data for this year and selected organizations
-                wf_df = df_db[
-                    (df_db['tahun_anggaran'] == wf_year) & 
-                    (df_db['uraian_ba'].isin(selected_ba))
-                ]
-                
-                # Pivot to get categories and values per type
-                start_mask = wf_df['data_category'] == 'Saldo Awal'
-                end_mask = wf_df['data_category'] == 'Neraca'
-                
-                start_vals = wf_df[start_mask].groupby('jenis_aset')['nilai'].sum()
-                end_vals = wf_df[end_mask].groupby('jenis_aset')['nilai'].sum()
-                
-                # Get unique asset types present in either
-                all_asset_types = sorted(list(set(start_vals.index) | set(end_vals.index)))
-                
-                if not all_asset_types:
-                    st.info("No 'Saldo Awal' or 'Neraca' data found for the selected filters to perform waterfall analysis.")
+                # Select single year for waterfall
+                if len(selected_years) > 0:
+                    wf_year = st.selectbox("Select Year for Waterfall Analysis", selected_years, index=0)
+                    
+                    # Filter data for this year and selected organizations
+                    wf_df = df_db[
+                        (df_db['tahun_anggaran'] == wf_year) & 
+                        (df_db['uraian_ba'].isin(selected_ba))
+                    ]
+                    
+                    # Pivot
+                    start_mask = wf_df['data_category'] == 'Saldo Awal'
+                    end_mask = wf_df['data_category'] == 'Neraca'
+                    
+                    start_vals = wf_df[start_mask].groupby('jenis_aset')['nilai'].sum()
+                    end_vals = wf_df[end_mask].groupby('jenis_aset')['nilai'].sum()
+                    
+                    # Get unique asset types
+                    all_asset_types = sorted(list(set(start_vals.index) | set(end_vals.index)))
+                    
+                    if not all_asset_types:
+                        st.info("No 'Saldo Awal' or 'Neraca' data found for the selected filters to perform waterfall analysis.")
+                    else:
+                        # Calculate Absolute Changes sum for Contribution Denominator
+                        # (End - Start)
+                        changes = []
+                        abs_sum_change = 0.0
+                        
+                        for asset_type in all_asset_types:
+                            s = start_vals.get(asset_type, 0)
+                            e = end_vals.get(asset_type, 0)
+                            delta = e - s
+                            changes.append({'type': asset_type, 'delta': delta, 'start': s, 'end': e})
+                            abs_sum_change += abs(delta)
+                        
+                        # Build Chart Data
+                        x_labels = ["Total Saldo Awal"]
+                        y_vals = [start_vals.sum()]
+                        measures = ["absolute"] # Initial Balance
+                        text_labels = [fmt_trillion(start_vals.sum())]
+                        
+                        for item in changes:
+                            if item['delta'] != 0:
+                                x_labels.append(item['type'])
+                                y_vals.append(item['delta'])
+                                measures.append("relative")
+                                
+                                # Contribution Calculation
+                                contrib = (abs(item['delta']) / abs_sum_change * 100) if abs_sum_change != 0 else 0
+                                
+                                # Text Label: Value + Contribution
+                                # Formatting explicitly
+                                formatted_val = fmt_trillion(item['delta'])
+                                txt = f"{formatted_val}<br>({contrib:.1f}%)"
+                                text_labels.append(txt)
+                        
+                        x_labels.append("Total Neraca")
+                        y_vals.append(end_vals.sum())
+                        measures.append("total")
+                        text_labels.append(fmt_trillion(end_vals.sum()))
+                        
+                        import plotly.graph_objects as go
+                        fig_wf = go.Figure(go.Waterfall(
+                            name="Asset Change",
+                            orientation="v",
+                            measure=measures,
+                            x=x_labels,
+                            textposition="outside",
+                            text=text_labels,
+                            y=y_vals,
+                            connector={"line":{"color":"rgb(63, 63, 63)"}},
+                            totals={"marker":{"color":"deepskyblue"}}
+                        ))
+    
+                        fig_wf.update_layout(
+                            title={'text': f"Asset Change Bridge: Saldo Awal vs Neraca ({wf_year})", 'x': 0.0},
+                            showlegend=False,
+                            height=600,
+                            margin=dict(t=50, b=50)
+                        )
+                        st.plotly_chart(fig_wf, use_container_width=True)
                 else:
-                    # Calculate Deltas
-                    x_labels = ["Total Saldo Awal"]
-                    y_vals = [start_vals.sum()]
-                    measures = ["absolute"]
-                    
-                    for asset_type in all_asset_types:
-                        s = start_vals.get(asset_type, 0)
-                        e = end_vals.get(asset_type, 0)
-                        delta = e - s
-                        if delta != 0:
-                            x_labels.append(asset_type)
-                            y_vals.append(delta)
-                            measures.append("relative")
-                    
-                    x_labels.append("Total Neraca")
-                    y_vals.append(end_vals.sum())
-                    measures.append("total")
-                    
-                    import plotly.graph_objects as go
-                    fig_wf = go.Figure(go.Waterfall(
-                        name="Asset Change",
-                        orientation="v",
-                        measure=measures,
-                        x=x_labels,
-                        textposition="outside",
-                        text=[f"{y:,.0f}" for y in y_vals],
-                        y=y_vals,
-                        connector={"line":{"color":"rgb(63, 63, 63)"}},
-                        totals={"marker":{"color":"deepskyblue"}}
-                    ))
-
-                    fig_wf.update_layout(
-                        title=f"Asset Change Bridge: Saldo Awal vs Neraca ({wf_year})",
-                        showlegend=False,
-                        height=600
-                    )
-                    st.plotly_chart(fig_wf, use_container_width=True)
-            else:
-                st.info("Please select at least one year in filters to see waterfall analysis.")
+                    st.info("Please select at least one year in filters to see waterfall analysis.")
 
             # Detailed Table
             st.divider()
