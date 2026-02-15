@@ -483,28 +483,50 @@ elif page == "Analytics Dashboard":
 
             st.divider()
 
-            # Row: Asset Growth (Original Line Chart)
-            # Re-adding simpler version as per original flow, but below new KPIs
-            st.subheader("Historical Trend")
+            # Historical & Composition Charts (Side-by-Side)
+            c_hist, c_prop = st.columns(2)
             
-            growth_df = filtered_df.groupby('tahun_anggaran')['nilai'].sum().reset_index()
-            growth_df['year_str'] = growth_df['tahun_anggaran'].astype(int).astype(str)
-            growth_df['val_fmt'] = growth_df['nilai'].apply(fmt_trillion)
-            
-            fig_growth = px.line(
-                growth_df, x='year_str', y='nilai', 
-                text='val_fmt',
-                markers=True, 
-                labels={'nilai': 'Total Value (IDR)', 'year_str': 'Fiscal Year'}
-            )
-            fig_growth.update_traces(textposition="top center")
-            fig_growth.update_layout(
-                title={'text': "Total Asset Value History", 'x': 0.0},
-                xaxis=dict(type='category'), 
-                yaxis=dict(tickformat=".0s", title="Value (IDR)"), 
-                margin=dict(t=50, b=50)
-            )
-            st.plotly_chart(fig_growth, use_container_width=True)
+            with c_hist:
+                with st.container(border=True):
+                    st.subheader("Historical Trend")
+                    
+                    growth_df = filtered_df.groupby('tahun_anggaran')['nilai'].sum().reset_index()
+                    growth_df['year_str'] = growth_df['tahun_anggaran'].astype(int).astype(str)
+                    growth_df['val_fmt'] = growth_df['nilai'].apply(fmt_trillion)
+                    
+                    fig_growth = px.line(
+                        growth_df, x='year_str', y='nilai', 
+                        text='val_fmt',
+                        markers=True, 
+                        labels={'nilai': 'Total Value (IDR)', 'year_str': 'Fiscal Year'}
+                    )
+                    fig_growth.update_traces(textposition="top center")
+                    fig_growth.update_layout(
+                        title={'text': "Total Asset Value History", 'x': 0.0},
+                        xaxis=dict(type='category'), 
+                        yaxis=dict(tickformat=".0s", title="Value (IDR)"), 
+                        margin=dict(t=50, b=50)
+                    )
+                    st.plotly_chart(fig_growth, use_container_width=True)
+
+            with c_prop:
+                with st.container(border=True):
+                    st.subheader("Asset Composition")
+                    
+                    comp_df = filtered_df.groupby('jenis_aset')['nilai'].sum().reset_index()
+                    comp_df['val_fmt'] = comp_df['nilai'].apply(fmt_trillion)
+                    
+                    fig_donut = px.pie(
+                        comp_df, values='nilai', names='jenis_aset',
+                        hole=0.4,
+                        labels={'nilai': 'Total Value', 'jenis_aset': 'Asset Type'}
+                    )
+                    fig_donut.update_traces(textinfo='percent+label')
+                    fig_donut.update_layout(
+                        title={'text': "Proportion by Asset Type", 'x': 0.0},
+                        margin=dict(t=50, b=50)
+                    )
+                    st.plotly_chart(fig_donut, use_container_width=True)
 
             # Row 2: BA Comparison
             with st.container(border=True):
