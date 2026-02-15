@@ -5,9 +5,8 @@ import os
 base_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.join(base_dir, "excel", "2023")
 files_to_inspect = {
-    "Neraca": "Neraca/Laporan lap_bmn_nrc kl  kode 001.xlsx",
-    "Penyusutan": "Penyusutan/PENYUSUTAN INTRAKOMPTABEL/Laporan lap_susut kl intrakomptabel kelompok kode 001.xlsx",
-    "Saldo Awal": "Saldo Awal/Laporan lap_bmn_nrc_sawal kl  kode 001.xlsx"
+    "Penyusutan Intra": "Penyusutan/PENYUSUTAN INTRAKOMPTABEL/Laporan lap_susut kl intrakomptabel kelompok kode 005.xlsx",
+    "Penyusutan Ekstra": "Penyusutan/PENYUSUTAN EKSTRAKOMPTABEL/Laporan lap_susut kl ekstrakomptabel kelompok kode 006.xlsx"
 }
 
 for category, rel_path in files_to_inspect.items():
@@ -15,8 +14,8 @@ for category, rel_path in files_to_inspect.items():
     if os.path.exists(full_path):
         print(f"\n--- Inspecting {category} ({rel_path}) ---")
         try:
-            # Read first 15 rows to capture more header context
-            df = pd.read_excel(full_path, header=None, nrows=15)
+            # Read first 25 rows to capture more header context
+            df = pd.read_excel(full_path, header=None, nrows=25)
             print(df.to_string())
         except Exception as e:
             print(f"Error reading {category}: {e}")

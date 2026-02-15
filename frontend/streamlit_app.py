@@ -12,7 +12,7 @@ sys.path.append(backend_path)
 
 from app.services.extraction.factory import ExtractorFactory
 from app.db.session import SessionLocal
-from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC
+from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC, PenyusutanEntry
 from app.services.reporting.pdf_generator import BARPDFGenerator
 
 # Utility: Get Organization PIC (Counterpart)
@@ -177,7 +177,7 @@ if page == "Data Ingestion":
     # Sidebar Filter for Category
     st.sidebar.divider()
     st.sidebar.header("Upload Settings")
-    fiscal_year = st.sidebar.selectbox("Fiscal Year", [2022, 2023, 2024], index=1)
+    fiscal_year = st.sidebar.selectbox("Fiscal Year", [2022, 2023, 2024, 2025, 2026], index=3)
     data_category = st.sidebar.selectbox(
         "Data Category", 
         ["Neraca", "Saldo Awal", "Penyusutan"]
@@ -205,8 +205,8 @@ if page == "Data Ingestion":
                 if results:
                     for r in results:
                         r['source_file'] = uploaded_file.name
-                        # Use selected year if not parsed
-                        if 'tahun_anggaran' not in r:
+                        # Use selected year if not parsed or None
+                        if not r.get('tahun_anggaran'):
                             r['tahun_anggaran'] = fiscal_year
                     all_results.extend(results)
             except Exception as e:
@@ -218,7 +218,13 @@ if page == "Data Ingestion":
             df = pd.DataFrame(all_results)
             
             # Show Metrics
-            total_value = df['nilai'].sum()
+            # Handle different data structures for metric calculation
+            if data_category == "Penyusutan":
+                # For Penyusutan, use nilai_buku as the main value for summary
+                total_value = df['nilai_buku'].sum()
+            else:
+                total_value = df['nilai'].sum()
+
             count = len(df)
             file_count = len(uploaded_files)
             
@@ -241,31 +247,59 @@ if page == "Data Ingestion":
                     db = SessionLocal()
                     upload_uuid = str(uuid.uuid4())
                     
-                    # Deduplication: Find unique (tahun, ba) pairs in current batch
+                    # Deduplication & Saving Logic
                     unique_pairs = set((entry.get('tahun_anggaran', fiscal_year), entry.get('kode_ba')) for entry in all_results)
                     
-                    for yr, ba in unique_pairs:
-                        db.query(ExtractedEntry).filter(
-                            ExtractedEntry.tahun_anggaran == yr,
-                            ExtractedEntry.kode_ba == ba,
-                            ExtractedEntry.data_category == data_category
-                        ).delete()
+                    if data_category == "Penyusutan":
+                         # Delete existing Penyusutan
+                        for yr, ba in unique_pairs:
+                            db.query(PenyusutanEntry).filter(
+                                PenyusutanEntry.tahun_anggaran == yr,
+                                PenyusutanEntry.kode_ba == ba
+                            ).delete()
+                    else:
+                        # Delete existing standard data
+                        for yr, ba in unique_pairs:
+                            db.query(ExtractedEntry).filter(
+                                ExtractedEntry.tahun_anggaran == yr,
+                                ExtractedEntry.kode_ba == ba,
+                                ExtractedEntry.data_category == data_category
+                            ).delete()
                     
                     db.flush()
                     
                     total = len(all_results)
                     db_entries = []
+                    
                     for i, entry in enumerate(all_results):
-                        db_entry = ExtractedEntry(
-                            upload_id=upload_uuid,
-                            data_category=data_category,
-                            kode_akun=entry.get('kode_akun'),
-                            uraian_akun=entry.get('uraian_akun'),
-                            nilai=entry.get('nilai'),
-                            tahun_anggaran=entry.get('tahun_anggaran', fiscal_year),
-                            kode_ba=entry.get('kode_ba'),
-                            uraian_ba=entry.get('uraian_ba')
-                        )
+                        if data_category == "Penyusutan":
+                            db_entry = PenyusutanEntry(
+                                upload_id=upload_uuid,
+                                kode_ba=entry.get('kode_ba'),
+                                uraian_ba=entry.get('uraian_ba'),
+                                tahun_anggaran=entry.get('tahun_anggaran', fiscal_year),
+                                jenis=entry.get('jenis'),
+                                kode_akun=entry.get('kode_akun'),
+                                uraian_akun=entry.get('uraian_akun'),
+                                nilai_perolehan=entry.get('nilai_perolehan'),
+                                saldo_awal_penyusutan=entry.get('saldo_awal_penyusutan'),
+                                mutasi_tambah=entry.get('mutasi_tambah'),
+                                mutasi_kurang=entry.get('mutasi_kurang'),
+                                saldo_akhir_penyusutan=entry.get('saldo_akhir_penyusutan'),
+                                nilai_buku=entry.get('nilai_buku')
+                            )
+                        else:
+                            db_entry = ExtractedEntry(
+                                upload_id=upload_uuid,
+                                data_category=data_category,
+                                kode_akun=entry.get('kode_akun'),
+                                uraian_akun=entry.get('uraian_akun'),
+                                nilai=entry.get('nilai'),
+                                tahun_anggaran=entry.get('tahun_anggaran', fiscal_year),
+                                kode_ba=entry.get('kode_ba'),
+                                uraian_ba=entry.get('uraian_ba')
+                            )
+                        
                         db_entries.append(db_entry)
                         
                         if (i + 1) % 100 == 0 or i == total - 1:

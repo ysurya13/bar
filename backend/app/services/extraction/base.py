@@ -39,7 +39,7 @@ class BaseExtractor(ABC):
         metadata = {
             "kode_ba": "000", 
             "uraian_ba": "Unknown",
-            "tahun_anggaran": 2023  # Default fallback
+            "tahun_anggaran": None  # Default loopback to None, allowing UI override
         }
         
         # Look at first 10 rows
