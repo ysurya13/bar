@@ -923,24 +923,40 @@ elif page == "Face BAR":
         
         # Metrics Display
         st.markdown("---")
+        
+        # Custom CSS for smaller metric font
+        st.markdown("""
+        <style>
+        div[data-testid="stMetricValue"] {
+            font-size: 1.2rem !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
         m_col1, m_col2, m_col3 = st.columns(3)
         with m_col1:
             st.write("**Total Part I (Neraca)**")
             st.metric("Awal", fmt(total_awal_i))
-            st.metric("Mutasi", fmt(total_mutasi_i), delta=fmt(total_mutasi_i))
+            pct_i = (total_mutasi_i / total_awal_i * 100) if total_awal_i != 0 else 0
+            st.metric("Mutasi", fmt(total_mutasi_i), delta=f"{pct_i:,.2f}%")
             st.metric("Akhir", fmt(total_akhir_i))
             
         with m_col2:
             st.write("**Total Part II (Non-Neraca)**")
             st.metric("Awal", fmt(total_awal_ii))
-            st.metric("Mutasi", fmt(total_mutasi_ii), delta=fmt(total_mutasi_ii))
+            pct_ii = (total_mutasi_ii / total_awal_ii * 100) if total_awal_ii != 0 else 0
+            st.metric("Mutasi", fmt(total_mutasi_ii), delta=f"{pct_ii:,.2f}%")
             st.metric("Akhir", fmt(total_akhir_ii))
 
         with m_col3:
             st.write("**GRAND TOTAL (I + II)**")
-            st.metric("Total Awal", fmt(total_awal_i + total_awal_ii))
-            st.metric("Total Mutasi", fmt(total_mutasi_i + total_mutasi_ii))
-            st.metric("Total Akhir", fmt(total_akhir_i + total_akhir_ii))
+            total_awal_all = total_awal_i + total_awal_ii
+            total_mutasi_all = total_mutasi_i + total_mutasi_ii
+            total_akhir_all = total_akhir_i + total_akhir_ii
+            st.metric("Total Awal", fmt(total_awal_all))
+            pct_all = (total_mutasi_all / total_awal_all * 100) if total_awal_all != 0 else 0
+            st.metric("Mutasi", fmt(total_mutasi_all), delta=f"{pct_all:,.2f}%")
+            st.metric("Total Akhir", fmt(total_akhir_all))
         
         st.divider()
         st.markdown(f"**Target BA:** {sel_ba_name} ({sel_ba_code})")
