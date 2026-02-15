@@ -366,10 +366,6 @@ elif page == "Analytics Dashboard":
              st.info("No data matches the selected filters.")
         else:
 
-            # Helper for Trillion T formatting
-            def fmt_trillion(val):
-                return f"IDR {val / 1e12:,.1f} T"
-
             # 1. Main KPI: Total Asset Value (Latest Year vs Start)
             # Find the latest year in the filtered data
             latest_year = filtered_df['tahun_anggaran'].max()
@@ -383,6 +379,19 @@ elif page == "Analytics Dashboard":
                 current_total = latest_df[latest_df['data_category'] == 'Neraca']['nilai'].sum()
             else:
                 current_total = latest_df['nilai'].sum()
+
+            # Dynamic Scale Logic (Trillion vs Billion)
+            # If total < 1 Trillion, use Billion scale
+            if current_total < 1e13:
+                scale_div = 1e9
+                scale_suffix = "M" # Miliar
+            else:
+                scale_div = 1e12
+                scale_suffix = "T" # Trillion
+
+            # Helper for Dynamic formatting
+            def fmt_trillion(val):
+                return f"IDR {val / scale_div:,.1f} {scale_suffix}"
                 
             # Calculate Comparison Value (Saldo Awal / Beginning Balance of same year)
             # Or if not available, previous year Neraca could be an option, but requirement says "beginning of the year (YTD)"
