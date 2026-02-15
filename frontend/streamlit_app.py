@@ -341,17 +341,64 @@ elif page == "Analytics Dashboard":
         st.sidebar.divider()
         st.sidebar.header("Filters")
         
+        # Initialize Defaults in Session State
+        if 'filter_defaults_init' not in st.session_state:
+            st.session_state['filter_defaults_init'] = True
+            st.session_state['ba_select_all'] = True
+            # For data category, default to Neraca if available
+            avail_cats = sorted([str(x) for x in df_db['data_category'].unique() if pd.notna(x)])
+            default_cat = ['Neraca'] if 'Neraca' in avail_cats else avail_cats
+            st.session_state['sel_cats'] = default_cat
+            # Years
+            all_yrs_init = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
+            st.session_state['sel_years'] = all_yrs_init
+            st.session_state['asset_select_all'] = True
+
+        def clear_filters():
+            st.session_state['ba_select_all'] = True
+            # Reset Category
+            avail_cats = sorted([str(x) for x in df_db['data_category'].unique() if pd.notna(x)])
+            st.session_state['sel_cats'] = ['Neraca'] if 'Neraca' in avail_cats else avail_cats
+            # Reset Years
+            all_yrs_reset = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
+            st.session_state['sel_years'] = all_yrs_reset
+            st.session_state['asset_select_all'] = True
+
+        if st.sidebar.button("Clear All Filters", on_click=clear_filters):
+            pass
+
+        # 1. Organization (BA) Filter
         all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
-        selected_ba = st.sidebar.multiselect("Select Organization (BA)", all_bas, default=all_bas)
         
+        # Container for layout
+        c_ba = st.sidebar.container()
+        use_all_ba = c_ba.checkbox("Select All Organizations", key='ba_select_all')
+        
+        if use_all_ba:
+            selected_ba = all_bas
+        else:
+            # If not all, show multiselect
+            # "If user filter more than 5 items... hide the rest" -> We can't easily hide chips inside the widget.
+            # But the 'Select All' solves the clutter of having 100 chips.
+            selected_ba = c_ba.multiselect("Select Organization (BA)", all_bas, default=[])
+
+        # 2. Years Filter (Standard)
         all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
-        selected_years = st.sidebar.multiselect("Select Years", all_years, default=all_years)
+        selected_years = st.sidebar.multiselect("Select Years", all_years, key='sel_years')
         
+        # 3. Data Category Filter (Default Neraca)
         all_cats = sorted([str(x) for x in df_db['data_category'].unique() if pd.notna(x)])
-        selected_cats = st.sidebar.multiselect("Select Data Category", all_cats, default=all_cats)
+        selected_cats = st.sidebar.multiselect("Select Data Category", all_cats, key='sel_cats')
         
+        # 4. Asset Types Filter
         all_assets = sorted([str(x) for x in df_db['jenis_aset'].unique() if pd.notna(x)])
-        selected_assets = st.sidebar.multiselect("Select Asset Types", all_assets, default=all_assets)
+        c_asset = st.sidebar.container()
+        use_all_assets = c_asset.checkbox("Select All Asset Types", key='asset_select_all')
+        
+        if use_all_assets:
+            selected_assets = all_assets
+        else:
+             selected_assets = c_asset.multiselect("Select Asset Types", all_assets, default=[])
 
         # Apply Filters
         mask = (
