@@ -13,7 +13,8 @@ base_path = os.path.join(base_dir, "excel", "2023")
 files_to_test = {
     "Neraca": "Neraca/Laporan lap_bmn_nrc kl  kode 001.xlsx",
     "Saldo Awal": "Saldo Awal/Laporan lap_bmn_nrc_sawal kl  kode 001.xlsx",
-    "Penyusutan": "Penyusutan/PENYUSUTAN INTRAKOMPTABEL/Laporan lap_susut kl intrakomptabel kelompok kode 001.xlsx"
+    "Penyusutan Intra": "Penyusutan/PENYUSUTAN INTRAKOMPTABEL/Laporan lap_susut kl intrakomptabel kelompok kode 005.xlsx",
+    "Penyusutan Ekstra": "Penyusutan/PENYUSUTAN EKSTRAKOMPTABEL/Laporan lap_susut kl ekstrakomptabel kelompok kode 006.xlsx"
 }
 
 def test_extraction():
@@ -28,7 +29,9 @@ def test_extraction():
             continue
             
         try:
-            extractor = factory.get_extractor(category)
+            # Map test keys to actual category
+            extract_cat = "Penyusutan" if "Penyusutan" in category else category
+            extractor = factory.get_extractor(extract_cat)
             
             # Read as binary to simulate upload file
             with open(full_path, "rb") as f:

@@ -65,3 +65,29 @@ class OrganizationPIC(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
+class PenyusutanEntry(Base):
+    __tablename__ = "penyusutan_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(String, index=True)
+    
+    # Metadata
+    kode_ba = Column(String, index=True)
+    uraian_ba = Column(String)
+    tahun_anggaran = Column(Integer, index=True)
+    jenis = Column(String) # INTRAKOMPTABEL or EKSTRAKOMPTABEL
+    
+    # Account Info
+    kode_akun = Column(String, index=True)
+    uraian_akun = Column(String)
+    
+    # Values
+    nilai_perolehan = Column(Numeric(precision=20, scale=2))
+    saldo_awal_penyusutan = Column(Numeric(precision=20, scale=2))
+    mutasi_tambah = Column(Numeric(precision=20, scale=2))
+    mutasi_kurang = Column(Numeric(precision=20, scale=2))
+    saldo_akhir_penyusutan = Column(Numeric(precision=20, scale=2))
+    nilai_buku = Column(Numeric(precision=20, scale=2))
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
