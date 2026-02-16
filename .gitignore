@@ -2,3 +2,6 @@
 node_modules/
 excel/
 **/.DS_Store
+backend/app/core/.DS_Store
+backend/app/.DS_Store
+backend/.DS_Store
