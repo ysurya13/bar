@@ -153,7 +153,11 @@ def get_asset_category(row):
     if kode.startswith('134'): return 'Jalan, Irigasi & Jaringan'
     if kode.startswith('135'): return 'Aset Tetap Lainnya'
     if kode.startswith('136'): return 'KDP'
-    return 'Lainnya'
+    if kode.startswith('138'): return 'Konsesi Jasa'
+    if kode.startswith('161'): return 'Kemitraan Dengan Pihak Ketiga'
+    if kode.startswith('162'): return 'Aset Tak Berwujud'
+    if kode.startswith('166'): return 'Aset Lain-lain'
+    return 'Akumulasi Penyusutan & Amortisasi'
 
 # Sidebar Navigation
 st.sidebar.title("📌 Main Menu")
@@ -438,7 +442,7 @@ elif page == "Analytics Dashboard":
 
             # Helper for Dynamic formatting
             def fmt_trillion(val):
-                return f"IDR {val / scale_div:,.1f} {scale_suffix}"
+                return f"{val / scale_div:,.2f} {scale_suffix}"
                 
             # Calculate Comparison Value (Saldo Awal / Beginning Balance of same year)
             # Or if not available, previous year Neraca could be an option, but requirement says "beginning of the year (YTD)"
@@ -481,19 +485,22 @@ elif page == "Analytics Dashboard":
             # Categories to display
             target_categories = [
                 "Tanah", "Persediaan", "Peralatan & Mesin", "Gedung & Bangunan",
-                "Jalan, Irigasi & Jaringan", "Aset Tetap Lainnya", "KDP", "Lainnya"
+                "Jalan, Irigasi & Jaringan", "Aset Tetap Lainnya", "KDP",
+                "Konsesi Jasa", "Kemitraan Dengan Pihak Ketiga", "Aset Tak Berwujud",
+                "Aset Lain-lain", "Akumulasi Penyusutan & Amortisasi"
             ]
             
             # Map robustly to actual names in DB (using 'startswith' logic from get_asset_category if needed, 
             # but here we rely on the 'jenis_aset' column we created earlier)
             
-            st.markdown("### 📊 Asset Composition & Growth")
+            st.markdown(f"### 📊 Asset Composition & Growth per {latest_year}")
             
             # Create rows of 4 columns
             row1 = st.columns(4)
             row2 = st.columns(4)
+            row3 = st.columns(4)
             
-            all_cols = row1 + row2
+            all_cols = row1 + row2 + row3
             
             for i, cat in enumerate(target_categories):
                 with all_cols[i]:
@@ -501,28 +508,16 @@ elif page == "Analytics Dashboard":
                     # Filter latest_df for this category
                     # Note: 'jenis_aset' column was created via apply() earlier
                     
-                    # Handle "Lainnya" separately or just match string
-                    if cat == "Lainnya":
-                        # Match anything not in the main list if needed, or just specific "Lainnya"
-                        # For simplicity, we assume exact match or strict mapping from get_asset_category
-                        cat_val = latest_df[latest_df['jenis_aset'] == cat]['nilai'].sum()
-                        
-                        # Start Value
-                        start_val = df_db[
-                            (df_db['tahun_anggaran'] == latest_year) & 
-                            (df_db['data_category'] == 'Saldo Awal') &
-                            (df_db['uraian_ba'].isin(selected_ba)) &
-                            (df_db['jenis_aset'] == cat)
-                        ]['nilai'].sum()
-                    else:
-                         # Relaxed matching or exact match
-                        cat_val = latest_df[latest_df['jenis_aset'] == cat]['nilai'].sum()
-                        start_val = df_db[
-                            (df_db['tahun_anggaran'] == latest_year) & 
-                            (df_db['data_category'] == 'Saldo Awal') &
-                            (df_db['uraian_ba'].isin(selected_ba)) &
-                            (df_db['jenis_aset'] == cat)
-                        ]['nilai'].sum()
+                    # Handle exact match from get_asset_category
+                    cat_val = latest_df[latest_df['jenis_aset'] == cat]['nilai'].sum()
+                    
+                    # Start Value
+                    start_val = df_db[
+                        (df_db['tahun_anggaran'] == latest_year) & 
+                        (df_db['data_category'] == 'Saldo Awal') &
+                        (df_db['uraian_ba'].isin(selected_ba)) &
+                        (df_db['jenis_aset'] == cat)
+                    ]['nilai'].sum()
 
                     # Calculate KPI
                     c_delta = cat_val - start_val
@@ -550,6 +545,16 @@ elif page == "Analytics Dashboard":
                     growth_df['year_str'] = growth_df['tahun_anggaran'].astype(int).astype(str)
                     growth_df['val_fmt'] = growth_df['nilai'].apply(fmt_trillion)
                     
+                    # Get min and max years from the data
+                    min_year = int(growth_df['tahun_anggaran'].min())
+                    max_year = int(growth_df['tahun_anggaran'].max())
+                    
+                    # Create extended x-axis range (add 1 year before and after)
+                    extended_years = [str(min_year - 1)] + growth_df['year_str'].tolist() + [str(max_year + 1)]
+                    
+                    # Get max value for y-axis range
+                    max_value = growth_df['nilai'].max()
+                    
                     fig_growth = px.line(
                         growth_df, x='year_str', y='nilai', 
                         text='val_fmt',
@@ -559,9 +564,16 @@ elif page == "Analytics Dashboard":
                     fig_growth.update_traces(textposition="top center")
                     fig_growth.update_layout(
                         title={'text': "Total Asset Value History", 'x': 0.0},
-                        xaxis=dict(type='category'), 
-                        yaxis=dict(tickformat=".0s", title="Value (IDR)"), 
+                        yaxis=dict(visible=False),  # Hide y-axis
                         margin=dict(t=50, b=50)
+                    )
+                    # Update axes separately to avoid type checker issues
+                    fig_growth.update_yaxes(range=[0, max_value * 1.15])  # Set range from 0 to max (with 15% padding for labels)
+                    fig_growth.update_xaxes(
+                        type='category',
+                        categoryorder='array',
+                        categoryarray=extended_years,
+                        range=[-0.5, len(extended_years) - 0.5]  # Force display of all categories including extended years
                     )
                     st.plotly_chart(fig_growth, use_container_width=True)
 
@@ -577,7 +589,8 @@ elif page == "Analytics Dashboard":
                         hole=0.4,
                         labels={'nilai': 'Total Value', 'jenis_aset': 'Asset Type'}
                     )
-                    fig_donut.update_traces(textinfo='percent+label')
+                    fig_donut.update_traces(textinfo='percent',
+                                            textposition='auto')
                     fig_donut.update_layout(
                         title={'text': "Proportion by Asset Type", 'x': 0.0},
                         margin=dict(t=50, b=50)
@@ -610,6 +623,10 @@ elif page == "Analytics Dashboard":
                 fig_ba.update_layout(
                     title={'text': f"Top {top_n} Organizations by Asset Value", 'x': 0.0},
                     xaxis={'categoryorder':'total descending', 'type': 'category'},
+                    yaxis=dict(showticklabels=False,
+                               zeroline=False,
+                               showgrid=False,
+                               range=[0, comparison_df['nilai'].max() * 1.2]),
                     margin=dict(t=50, b=50)
                 )
                 fig_ba.update_traces(textposition='outside')
@@ -708,16 +725,20 @@ elif page == "Analytics Dashboard":
                             title={'text': f"Asset Change Bridge: Saldo Awal vs Neraca ({wf_year})", 'x': 0.0},
                             showlegend=False,
                             height=600,
-                            margin=dict(t=50, b=50)
+                            margin=dict(t=50, b=50),
+                            yaxis=dict(showticklabels=False,
+                                       zeroline=False,
+                                       showgrid=False,
+                                       range=[0, end_vals.sum() * 1.2])
                         )
                         st.plotly_chart(fig_wf, use_container_width=True)
                 else:
                     st.info("Please select at least one year in filters to see waterfall analysis.")
 
             # Detailed Table
-            st.divider()
-            st.subheader("Filtered Asset Details")
-            st.dataframe(filtered_df, use_container_width=True)
+            # st.divider()
+            # st.subheader("Filtered Asset Details")
+            # st.dataframe(filtered_df, use_container_width=True)
 
 elif page == "Face BAR":
     st.title("📄 Face BAR (Berita Acara Rekonsiliasi)")
