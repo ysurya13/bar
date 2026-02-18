@@ -2,6 +2,7 @@ from app.services.extraction.base import BaseExtractor
 from app.services.extraction.neraca import NeracaExtractor
 from app.services.extraction.saldo_awal import SaldoAwalExtractor
 from app.services.extraction.penyusutan import PenyusutanExtractor
+from app.services.extraction.laporan_barang import LaporanBarangExtractor
 
 class ExtractorFactory:
     @staticmethod
@@ -12,5 +13,7 @@ class ExtractorFactory:
             return SaldoAwalExtractor()
         elif category == "Penyusutan":
             return PenyusutanExtractor()
+        elif category == "Laporan Barang":
+            return LaporanBarangExtractor()
         else:
             raise ValueError(f"Unknown category: {category}")

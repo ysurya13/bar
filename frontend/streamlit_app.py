@@ -12,7 +12,7 @@ sys.path.append(backend_path)
 
 from app.services.extraction.factory import ExtractorFactory
 from app.db.session import SessionLocal
-from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC, PenyusutanEntry
+from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC, PenyusutanEntry, LaporanBarangEntry
 from app.services.reporting.pdf_generator import BARPDFGenerator
 
 # Utility: Get Organization PIC (Counterpart)
@@ -184,7 +184,7 @@ if page == "Data Ingestion":
     fiscal_year = st.sidebar.selectbox("Fiscal Year", [2022, 2023, 2024, 2025, 2026], index=3)
     data_category = st.sidebar.selectbox(
         "Data Category", 
-        ["Neraca", "Saldo Awal", "Penyusutan"]
+        ["Neraca", "Saldo Awal", "Penyusutan", "Laporan Barang"]
     )
 
     # File Upload
@@ -226,6 +226,9 @@ if page == "Data Ingestion":
             if data_category == "Penyusutan":
                 # For Penyusutan, use nilai_buku as the main value for summary
                 total_value = df['nilai_buku'].sum()
+            elif data_category == "Laporan Barang":
+                # For Laporan Barang, use nilai_akhir as the main summary value
+                total_value = df['nilai_akhir'].sum()
             else:
                 total_value = df['nilai'].sum()
 
@@ -261,6 +264,18 @@ if page == "Data Ingestion":
                                 PenyusutanEntry.tahun_anggaran == yr,
                                 PenyusutanEntry.kode_ba == ba
                             ).delete()
+                    elif data_category == "Laporan Barang":
+                        # Delete existing Laporan Barang for same BA/Year/jenis
+                        unique_triples = set(
+                            (entry.get('tahun_anggaran', fiscal_year), entry.get('kode_ba'), entry.get('jenis_laporan'))
+                            for entry in all_results
+                        )
+                        for yr, ba, jenis in unique_triples:
+                            db.query(LaporanBarangEntry).filter(
+                                LaporanBarangEntry.tahun_anggaran == yr,
+                                LaporanBarangEntry.kode_ba == ba,
+                                LaporanBarangEntry.jenis_laporan == jenis
+                            ).delete()
                     else:
                         # Delete existing standard data
                         for yr, ba in unique_pairs:
@@ -291,6 +306,20 @@ if page == "Data Ingestion":
                                 mutasi_kurang=entry.get('mutasi_kurang'),
                                 saldo_akhir_penyusutan=entry.get('saldo_akhir_penyusutan'),
                                 nilai_buku=entry.get('nilai_buku')
+                            )
+                        elif data_category == "Laporan Barang":
+                            db_entry = LaporanBarangEntry(
+                                upload_id=upload_uuid,
+                                kode_ba=entry.get('kode_ba'),
+                                uraian_ba=entry.get('uraian_ba'),
+                                tahun_anggaran=entry.get('tahun_anggaran', fiscal_year),
+                                jenis_laporan=entry.get('jenis_laporan'),
+                                kode_akun=entry.get('kode_akun'),
+                                uraian_akun=entry.get('uraian_akun'),
+                                nilai_awal=entry.get('nilai_awal', 0.0),
+                                mutasi_tambah=entry.get('mutasi_tambah', 0.0),
+                                mutasi_kurang=entry.get('mutasi_kurang', 0.0),
+                                nilai_akhir=entry.get('nilai_akhir', 0.0)
                             )
                         else:
                             db_entry = ExtractedEntry(

@@ -8,7 +8,7 @@ from app.db.session import engine
 from app.db.base import Base
 # Import models to ensure they are registered with Base
 from app.models.reference import ReferenceAccount, ReferenceOrganization, ReferenceStaff
-from app.models.extracted_data import ExtractedEntry
+from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC, PenyusutanEntry, LaporanBarangEntry
 
 import time
 

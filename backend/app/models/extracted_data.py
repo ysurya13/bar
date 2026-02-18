@@ -91,3 +91,28 @@ class PenyusutanEntry(Base):
     nilai_buku = Column(Numeric(precision=20, scale=2))
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class LaporanBarangEntry(Base):
+    __tablename__ = "laporan_barang_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    upload_id = Column(String, index=True)
+
+    # Metadata
+    kode_ba = Column(String, index=True)
+    uraian_ba = Column(String)
+    tahun_anggaran = Column(Integer, index=True)
+    jenis_laporan = Column(String, index=True)  # Aset Tak Berwujud / Ekstrakomptabel / Intrakomptabel / Konstruksi Dalam Pengerjaan
+
+    # Account Info
+    kode_akun = Column(String, index=True)
+    uraian_akun = Column(String)
+
+    # Financial Values
+    nilai_awal = Column(Numeric(precision=20, scale=2), default=0.0)
+    mutasi_tambah = Column(Numeric(precision=20, scale=2), default=0.0)
+    mutasi_kurang = Column(Numeric(precision=20, scale=2), default=0.0)
+    nilai_akhir = Column(Numeric(precision=20, scale=2), default=0.0)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
