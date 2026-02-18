@@ -91,6 +91,11 @@ class BaseExtractor(ABC):
                     if metadata["kode_ba"] in full_row_str:
                         _, remainder = full_row_str.split(metadata["kode_ba"], 1)
                         candidate_desc = remainder.strip().replace(":", "").strip()
+                        # Truncate at "Kode Lap" — some files (KDP, ATB) include
+                        # a report-code suffix on the same UAPB row, e.g.
+                        # "KEMENTERIAN LUAR NEGERI  Kode Lap  :  lap_kdp_kl"
+                        if "Kode Lap" in candidate_desc:
+                            candidate_desc = candidate_desc.split("Kode Lap")[0].strip()
                         if len(candidate_desc) > 2:
                              metadata["uraian_ba"] = candidate_desc
                 
