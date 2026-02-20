@@ -299,6 +299,90 @@ if page == "Generate Bar":
 # Sidebar Header
 st.sidebar.title("Parameters")
 
+if page == "About":
+    st.markdown("""
+    <div style="text-align: center; padding: 4rem 2rem; background: linear-gradient(180deg, rgba(14,46,205,0.05) 0%, rgba(246,246,248,1) 100%); border-radius: 1rem; margin-bottom: 2rem;">
+        <h1 style="font-size: 3rem; color: #0f172a; margin-bottom: 1rem;">Welcome to Rekon BMN</h1>
+        <p style="font-size: 1.25rem; color: #64748b; max-width: 600px; margin: 0 auto 2rem auto;">Automating Financial Workflows and Asset Reconciliations with precision.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_cta1, col_cta2, col_cta3 = st.columns([1, 1, 1])
+    with col_cta2:
+        def go_to_data_input():
+            st.session_state.current_page = "Data Input"
+            # Keep sync with selectbox
+            st.session_state.nav_selectbox = "Data Input"
+
+        def go_to_analytics():
+            st.session_state.current_page = "Analytics Dashboard"
+            if 'nav_selectbox' in st.session_state:
+                st.session_state.nav_selectbox = "Analytics Dashboards"
+
+        def go_to_generate():
+            st.session_state.current_page = "Generate Bar"
+            if 'nav_selectbox' in st.session_state:
+                st.session_state.nav_selectbox = "Generate Bar"
+            
+        st.button("🚀 Get Started", type="primary", use_container_width=True, on_click=go_to_data_input)
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #0f172a; margin-bottom: 2rem;'>Core Features</h3>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+    /* Turn specific feature card buttons into H4 style links */
+    button[key="link_data_input"], button[key="link_analytics"], button[key="link_generate"] {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #0e2ecd !important;
+        padding: 0 !important;
+        margin-top: -0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    button[key="link_data_input"]:hover, button[key="link_analytics"]:hover, button[key="link_generate"]:hover {
+        background-color: transparent !important;
+        color: #0e2ecd !important;
+        text-decoration: underline !important;
+    }
+    button[key="link_data_input"] > div, button[key="link_analytics"] > div, button[key="link_generate"] > div {
+        display: flex;
+        justify-content: center;
+    }
+    button[key="link_data_input"] p, button[key="link_analytics"] p, button[key="link_generate"] p {
+        font-size: 1.5rem !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        margin: 0 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    fc1, fc2, fc3 = st.columns(3)
+    
+    with fc1:
+        with st.container(border=True):
+            st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📊</h1>", unsafe_allow_html=True)
+            st.button("Data Ingestion", key="link_data_input", on_click=go_to_data_input, use_container_width=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Upload complex financial reports (Neraca, Penyusutan, Laporan Barang) and let the engine automate parsing and persistence.</p></div>", unsafe_allow_html=True)
+            
+    with fc2:
+        with st.container(border=True):
+            st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📈</h1>", unsafe_allow_html=True)
+            st.button("Dynamic Analytics", key="link_analytics", on_click=go_to_analytics, use_container_width=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Visualize your asset portfolios, generate KPIs, and map period-over-period waterfall analysis effortlessly.</p></div>", unsafe_allow_html=True)
+            
+    with fc3:
+        with st.container(border=True):
+            st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📄</h1>", unsafe_allow_html=True)
+            st.button("BAR Generation", key="link_generate", on_click=go_to_generate, use_container_width=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Compile qualitative notes, reconcile quantitative balances, and instantly export signed Berita Acara Rekonsiliasi (BAR) PDFs.</p></div>", unsafe_allow_html=True)
+            
+    st.markdown("<br><br><hr style='border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem;'>Financial Data Engine v1.2</p>", unsafe_allow_html=True)
+
+
 if page == "Data Input":
     st.title("📊 Data Ingestion")
     st.markdown("Upload financial reports (Neraca, Saldo Awal, Penyusutan) to extract and persist data.")
