@@ -303,8 +303,8 @@ if page != "About":
 if page == "About":
     st.markdown("""
     <div style="text-align: center; padding: 4rem 2rem; background: linear-gradient(180deg, rgba(14,46,205,0.05) 0%, rgba(246,246,248,1) 100%); border-radius: 1rem; margin-bottom: 2rem;">
-        <h1 style="font-size: 3rem; color: #0f172a; margin-bottom: 1rem;">Welcome to Rekon BMN</h1>
-        <p style="font-size: 1.25rem; color: #64748b; max-width: 600px; margin: 0 auto 2rem auto;">Automating Financial Workflows and Asset Reconciliations with precision.</p>
+        <h1 style="font-size: 3rem; color: #0f172a; margin-bottom: 1rem;">Otomatisasi Rekonsiliasi BMN</h1>
+        <p style="font-size: 1.25rem; color: #64748b; max-width: 600px; margin: 0 auto 2rem auto;">Sistem pengolahan data laporan Barang Milik Negara meliputi proses ekstraksi data dari excel laporan MONSAKTI, visualisasi data aset, dan pembuatan BAR secara otomatis.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -366,19 +366,19 @@ if page == "About":
         with st.container(border=True):
             st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📊</h1>", unsafe_allow_html=True)
             st.button("Data Ingestion", key="link_data_input", on_click=go_to_data_input, use_container_width=True)
-            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Upload complex financial reports (Neraca, Penyusutan, Laporan Barang) and let the engine automate parsing and persistence.</p></div>", unsafe_allow_html=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Otomasi Penyusunan BAR: Unggah laporan BMN langsung dari MONSAKTI. Sistem akan mengekstrak data secara otomatis untuk mempercepat proses rekonsiliasi Anda dengan akurasi tinggi.</p></div>", unsafe_allow_html=True)
             
     with fc2:
         with st.container(border=True):
             st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📈</h1>", unsafe_allow_html=True)
             st.button("Dynamic Analytics", key="link_analytics", on_click=go_to_analytics, use_container_width=True)
-            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Visualize your asset portfolios, generate KPIs, and map period-over-period waterfall analysis effortlessly.</p></div>", unsafe_allow_html=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Visualisasikan portofolio BMN secara komprehensif. Pantau pertumbuhan aset tahunan, progres year-to-date, dan perbandingan performa antar K/L dalam satu dasbor terpadu.</p></div>", unsafe_allow_html=True)
             
     with fc3:
         with st.container(border=True):
             st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0.5rem; margin-top: 0;'>📄</h1>", unsafe_allow_html=True)
             st.button("BAR Generation", key="link_generate", on_click=go_to_generate, use_container_width=True)
-            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Compile qualitative notes, reconcile quantitative balances, and instantly export signed Berita Acara Rekonsiliasi (BAR) PDFs.</p></div>", unsafe_allow_html=True)
+            st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Penyusunan BAR Standar: Hasilkan dokumen Berita Acara Rekonsiliasi secara otomatis sesuai format template resmi yang telah ditentukan.</p></div>", unsafe_allow_html=True)
             
     st.markdown("<br><br><hr style='border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem;'>Rekon BMN Engine v1.2 by YPAS & Gemini</p>", unsafe_allow_html=True)
