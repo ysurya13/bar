@@ -112,10 +112,83 @@ def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, jabatan=None, ttd_typ
         db.close()
 
 st.set_page_config(
-    page_title="Financial Data Engine",
-    page_icon="📊",
-    layout="wide"
+    page_title="Rekon BMN",
+    page_icon="🏦",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
+
+# --- GLOBAL CSS: Rekon BMN Design System ---
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif !important;
+}
+
+:root {
+    --primary: #0e2ecd;
+    --bg-light: #f6f6f8;
+    --border-color: #e2e8f0;
+}
+
+/* Backgrounds */
+[data-testid="stAppViewContainer"] {
+    background-color: var(--bg-light);
+}
+[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid var(--border-color);
+}
+
+/* Typography styles */
+h1 {
+    font-weight: 900 !important;
+    letter-spacing: -0.025em;
+    color: #0f172a;
+}
+h2, h3, h4 {
+    font-weight: 700 !important;
+    letter-spacing: -0.025em;
+}
+
+/* Top Navigation / Radio Horizontal Styling */
+div[data-testid="stRadio"] > div[role="radiogroup"] {
+    flex-direction: row;
+    gap: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+div[data-testid="stRadio"] label {
+    font-weight: 600;
+    color: #64748b;
+}
+
+/* Selected Radio style (approximating under-border) */
+div[data-testid="stRadio"] label[data-checked="true"] {
+    color: var(--primary) !important;
+}
+
+/* Primary buttons */
+button[kind="primary"] {
+    background-color: var(--primary) !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 6px -1px rgba(14, 46, 205, 0.2), 0 2px 4px -1px rgba(14, 46, 205, 0.1) !important;
+}
+
+/* Cards (st.container with border) */
+[data-testid="elementTypeContainer"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 0.75rem !important;
+    border: 1px solid var(--border-color) !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Utility: Load data from DB
 def load_db_data() -> pd.DataFrame:
@@ -159,20 +232,31 @@ def get_asset_category(row):
     if kode.startswith('166'): return 'Aset Lain-lain'
     return 'Akumulasi Penyusutan & Amortisasi'
 
-# Sidebar Navigation
-st.sidebar.title("📌 Main Menu")
-main_page = st.sidebar.selectbox("Main Category", ["Data Ingestion", "Analytics Dashboard", "Generate BAR"])
+# Header & Top Navigation
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.markdown("<h2 style='margin-top: 0; padding-top: 0; color: #0e2ecd; font-weight: 800; font-size: 1.5rem;'>🏦 Rekon BMN</h2>", unsafe_allow_html=True)
+with col2:
+    # Top horizontal navigation
+    top_nav_selection = st.radio(
+        "Navigation",
+        ["About", "Data Ingestion", "Analytics Dashboards", "Generate Bar"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
 
-if main_page == "Data Ingestion":
-    st.sidebar.divider()
+if top_nav_selection == "About":
+    page = "About"
+elif top_nav_selection == "Data Ingestion":
     page = "Data Ingestion"
-elif main_page == "Analytics Dashboard":
-    st.sidebar.divider()
+elif top_nav_selection == "Analytics Dashboards":
     page = "Analytics Dashboard"
-elif main_page == "Generate BAR":
-    st.sidebar.divider()
-    st.sidebar.subheader("Generate BAR")
+elif top_nav_selection == "Generate Bar":
+    st.sidebar.subheader("Generate BAR Tasks")
     page = st.sidebar.radio("Sub Page", ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"])
+
+# Sidebar Header
+st.sidebar.title("Parameters")
 
 if page == "Data Ingestion":
     st.title("📊 Data Ingestion")
@@ -236,9 +320,15 @@ if page == "Data Ingestion":
             file_count = len(uploaded_files)
             
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total Files", file_count)
-            col2.metric("Total Records", count)
-            col3.metric("Total Value (IDR)", f"{total_value:,.0f}")
+            with col1:
+                with st.container(border=True):
+                    st.metric("Total Files", file_count)
+            with col2:
+                with st.container(border=True):
+                    st.metric("Total Records", count)
+            with col3:
+                with st.container(border=True):
+                    st.metric("Total Value (IDR)", f"{total_value:,.0f}")
             
             # Data Preview
             st.subheader("Extracted Data (Consolidated)")
@@ -781,13 +871,12 @@ elif page == "Face BAR":
         all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
         all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
         
-        col1, col2 = st.columns(2)
-        with col1:
-            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas)
-            # Find kode_ba for the selected name
-            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
-        with col2:
-            sel_year = st.selectbox("Select Fiscal Year", all_years)
+        st.sidebar.divider()
+        st.sidebar.header("Report Filters")
+        sel_ba_name = st.sidebar.selectbox("Select Organization (BA)", all_bas)
+        # Find kode_ba for the selected name
+        sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        sel_year = st.sidebar.selectbox("Select Fiscal Year", all_years)
 
         # Load existing metadata and counterpart
         existing_meta = load_bar_metadata(sel_ba_code, sel_year)
@@ -1039,12 +1128,11 @@ elif page == "Lampiran Kualitatif":
         all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
         all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
         
-        col1, col2 = st.columns(2)
-        with col1:
-            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas, key="qual_ba")
-            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
-        with col2:
-            sel_year = st.selectbox("Select Fiscal Year", all_years, key="qual_year")
+        st.sidebar.divider()
+        st.sidebar.header("Report Filters")
+        sel_ba_name = st.sidebar.selectbox("Select Organization (BA)", all_bas, key="qual_ba")
+        sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        sel_year = st.sidebar.selectbox("Select Fiscal Year", all_years, key="qual_year")
 
         # Load existing metadata
         existing_meta = load_bar_metadata(sel_ba_code, sel_year)
