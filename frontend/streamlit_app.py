@@ -111,11 +111,88 @@ def save_bar_metadata(kode_ba, tahun, nama=None, nip=None, jabatan=None, ttd_typ
     finally:
         db.close()
 
-st.set_page_config(
-    page_title="Financial Data Engine",
-    page_icon="📊",
-    layout="wide"
-)
+# --- GLOBAL CSS: Rekon BMN Design System ---
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif !important;
+}
+
+:root {
+    --primary: #0e2ecd;
+    --bg-light: #f6f6f8;
+    --border-color: #e2e8f0;
+}
+
+/* Backgrounds */
+[data-testid="stAppViewContainer"] {
+    background-color: var(--bg-light);
+}
+[data-testid="stSidebar"] {
+    background-color: #ffffff;
+    border-right: 1px solid var(--border-color);
+}
+
+/* Typography styles */
+h1 {
+    font-weight: 900 !important;
+    letter-spacing: -0.025em;
+    color: #0f172a;
+}
+h2, h3, h4 {
+    font-weight: 700 !important;
+    letter-spacing: -0.025em;
+}
+
+/* Custom Navigation Buttons (Text Links) */
+div[data-testid="stHorizontalBlock"] button {
+    border: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: #64748b !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 0.25rem !important;
+    margin: 0 !important;
+    transition: all 0.2s ease !important;
+}
+
+div[data-testid="stHorizontalBlock"] button:hover {
+    color: var(--primary) !important;
+    background-color: rgba(14, 46, 205, 0.05) !important;
+}
+
+div[data-testid="stHorizontalBlock"] button p {
+    font-size: 0.9rem !important;
+}
+
+/* Simulated Active State class (via st.markdown trickery if needed, but we'll use emojis/text weight) */
+.nav-active {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    border-left: 2px solid var(--primary) !important;
+    padding-left: 0.5rem !important;
+}
+
+/* Primary buttons */
+button[kind="primary"] {
+    background-color: var(--primary) !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 6px -1px rgba(14, 46, 205, 0.2), 0 2px 4px -1px rgba(14, 46, 205, 0.1) !important;
+}
+
+/* Cards (st.container with border) */
+[data-testid="elementTypeContainer"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 0.75rem !important;
+    border: 1px solid var(--border-color) !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # Utility: Load data from DB
 def load_db_data() -> pd.DataFrame:
@@ -159,22 +236,63 @@ def get_asset_category(row):
     if kode.startswith('166'): return 'Aset Lain-lain'
     return 'Akumulasi Penyusutan & Amortisasi'
 
+# Initialize Session State for Navigation
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "About"
+
+
 # Sidebar Navigation
-st.sidebar.title("📌 Main Menu")
-main_page = st.sidebar.selectbox("Main Category", ["Data Ingestion", "Analytics Dashboard", "Generate BAR"])
+pages_map = {
+    "About": "About",
+    "Data Input": "Data Input",
+    "Analytics Dashboards": "Analytics Dashboard",
+    "Generate Bar": "Generate Bar"
+}
 
-if main_page == "Data Ingestion":
-    st.sidebar.divider()
-    page = "Data Ingestion"
-elif main_page == "Analytics Dashboard":
-    st.sidebar.divider()
-    page = "Analytics Dashboard"
-elif main_page == "Generate BAR":
-    st.sidebar.divider()
-    st.sidebar.subheader("Generate BAR")
-    page = st.sidebar.radio("Sub Page", ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"])
+# Handle initial state
+if 'nav_selectbox' not in st.session_state:
+    # Set it to the key that matches current_page
+    for k, v in pages_map.items():
+        if v == st.session_state.get('current_page', 'About'):
+            st.session_state.nav_selectbox = k
+            break
 
-if page == "Data Ingestion":
+# Streamlit selectbox with key binds its value directly to session_state
+st.sidebar.selectbox(
+    "Navigation", 
+    options=list(pages_map.keys()),
+    key="nav_selectbox"
+)
+
+# Update current page from the selectbox state
+st.session_state.current_page = pages_map[st.session_state.nav_selectbox]
+
+st.sidebar.divider()
+
+page = st.session_state.current_page
+
+if page == "Generate Bar":
+    # Custom Sidebar Navigation for Sub-pages
+    if 'sub_page' not in st.session_state:
+        st.session_state.sub_page = "Face BAR"
+        
+    sub_pages = ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"]
+    
+    if 'sub_nav_selectbox' not in st.session_state:
+        st.session_state.sub_nav_selectbox = st.session_state.get('sub_page', sub_pages[0])
+    
+    st.sidebar.selectbox(
+        "Generate BAR Tasks", 
+        options=sub_pages, 
+        key="sub_nav_selectbox"
+    )
+    st.session_state.sub_page = st.session_state.sub_nav_selectbox
+    page = st.session_state.sub_page
+
+# Sidebar Header
+st.sidebar.title("Parameters")
+
+if page == "Data Input":
     st.title("📊 Data Ingestion")
     st.markdown("Upload financial reports (Neraca, Saldo Awal, Penyusutan) to extract and persist data.")
 
@@ -236,9 +354,15 @@ if page == "Data Ingestion":
             file_count = len(uploaded_files)
             
             col1, col2, col3 = st.columns(3)
-            col1.metric("Total Files", file_count)
-            col2.metric("Total Records", count)
-            col3.metric("Total Value (IDR)", f"{total_value:,.0f}")
+            with col1:
+                with st.container(border=True):
+                    st.metric("Total Files", file_count)
+            with col2:
+                with st.container(border=True):
+                    st.metric("Total Records", count)
+            with col3:
+                with st.container(border=True):
+                    st.metric("Total Value (IDR)", f"{total_value:,.0f}")
             
             # Data Preview
             st.subheader("Extracted Data (Consolidated)")
@@ -781,13 +905,12 @@ elif page == "Face BAR":
         all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
         all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
         
-        col1, col2 = st.columns(2)
-        with col1:
-            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas)
-            # Find kode_ba for the selected name
-            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
-        with col2:
-            sel_year = st.selectbox("Select Fiscal Year", all_years)
+        st.sidebar.divider()
+        st.sidebar.header("Report Filters")
+        sel_ba_name = st.sidebar.selectbox("Select Organization (BA)", all_bas)
+        # Find kode_ba for the selected name
+        sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        sel_year = st.sidebar.selectbox("Select Fiscal Year", all_years)
 
         # Load existing metadata and counterpart
         existing_meta = load_bar_metadata(sel_ba_code, sel_year)
@@ -1039,12 +1162,11 @@ elif page == "Lampiran Kualitatif":
         all_bas = sorted([str(x) for x in df_db['uraian_ba'].unique() if pd.notna(x)])
         all_years = sorted([int(x) for x in df_db['tahun_anggaran'].unique() if pd.notna(x)])
         
-        col1, col2 = st.columns(2)
-        with col1:
-            sel_ba_name = st.selectbox("Select Organization (BA)", all_bas, key="qual_ba")
-            sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
-        with col2:
-            sel_year = st.selectbox("Select Fiscal Year", all_years, key="qual_year")
+        st.sidebar.divider()
+        st.sidebar.header("Report Filters")
+        sel_ba_name = st.sidebar.selectbox("Select Organization (BA)", all_bas, key="qual_ba")
+        sel_ba_code = df_db[df_db['uraian_ba'] == sel_ba_name]['kode_ba'].iloc[0]
+        sel_year = st.sidebar.selectbox("Select Fiscal Year", all_years, key="qual_year")
 
         # Load existing metadata
         existing_meta = load_bar_metadata(sel_ba_code, sel_year)

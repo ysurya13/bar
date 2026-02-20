@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mimco Capital | Data Ingestion</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0e2ecd",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101322",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .active-nav {
+            position: relative;
+        }
+        .active-nav::after {
+            content: '';
+            position: absolute;
+            bottom: -21px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #0e2ecd;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 w-full bg-white dark:bg-background-dark border-b border-slate-200 dark:border-slate-800">
+<div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center justify-between">
+<div class="flex items-center gap-8">
+<div class="flex items-center gap-2">
+<div class="bg-primary p-1.5 rounded text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-[20px]">account_balance</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-extrabold tracking-tight uppercase">Mimco Capital</h2>
+</div>
+<nav class="hidden md:flex items-center gap-8 ml-4">
+<a class="text-slate-500 hover:text-primary text-sm font-semibold transition-colors" href="#">About</a>
+<a class="active-nav text-primary text-sm font-semibold transition-colors" href="#">Data Ingestion</a>
+<a class="text-slate-500 hover:text-primary text-sm font-semibold transition-colors" href="#">Analytics Dashboards</a>
+<a class="text-slate-500 hover:text-primary text-sm font-semibold transition-colors" href="#">Generate Bar</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-xs">
+                    JD
+                </div>
+</div>
+</div>
+</header>
+<div class="max-w-[1440px] mx-auto flex min-h-[calc(100vh-64px)]">
+<!-- Sidebar Filter Panel -->
+<aside class="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-background-dark p-6 flex flex-col gap-8">
+<div>
+<h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">Ingestion Parameters</h3>
+<!-- Fiscal Year Selection -->
+<div class="mb-8">
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+<span class="material-symbols-outlined text-sm text-primary">calendar_today</span>
+                        Fiscal Year
+                    </label>
+<select class="w-full bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-primary focus:border-primary">
+<option>FY 2024 (Current)</option>
+<option>FY 2023</option>
+<option>FY 2022</option>
+<option>FY 2021</option>
+</select>
+</div>
+<!-- Data Type Selection -->
+<div>
+<label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+<span class="material-symbols-outlined text-sm text-primary">description</span>
+                        Data Type
+                    </label>
+<div class="flex flex-col gap-2">
+<label class="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-all">
+<input checked="" class="w-4 h-4 text-primary border-slate-300 focus:ring-primary" name="datatype" type="radio"/>
+<span class="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-primary">Neraca</span>
+</label>
+<label class="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-all">
+<input class="w-4 h-4 text-primary border-slate-300 focus:ring-primary" name="datatype" type="radio"/>
+<span class="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-primary">Saldo Awal</span>
+</label>
+<label class="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-all">
+<input class="w-4 h-4 text-primary border-slate-300 focus:ring-primary" name="datatype" type="radio"/>
+<span class="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-primary">Penyusutan</span>
+</label>
+<label class="group flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer transition-all">
+<input class="w-4 h-4 text-primary border-slate-300 focus:ring-primary" name="datatype" type="radio"/>
+<span class="text-sm font-medium text-slate-600 dark:text-slate-400 group-hover:text-primary">Laporan Barang</span>
+</label>
+</div>
+</div>
+</div>
+<div class="mt-auto">
+<div class="p-4 bg-primary/5 rounded-xl border border-primary/10">
+<p class="text-xs text-primary font-bold mb-1">System Health</p>
+<p class="text-[11px] text-slate-500 leading-relaxed">Processing nodes are active and operating at 100% capacity.</p>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-10 flex flex-col gap-10">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-2">Data Ingestion</h1>
+<p class="text-slate-500 dark:text-slate-400 max-w-xl">Upload financial asset data for ingestion into the capital management engine. Ensure files match the selected data type and fiscal year.</p>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-lg font-bold text-sm tracking-wide transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+<span class="material-symbols-outlined text-lg">sync</span>
+                    Ingest Data
+                </button>
+</div>
+<!-- File Upload Zone -->
+<section>
+<div class="relative group">
+<div class="absolute -inset-1 bg-gradient-to-r from-primary to-blue-600 rounded-xl blur opacity-5 group-hover:opacity-10 transition duration-1000 group-hover:duration-200"></div>
+<div class="relative bg-white dark:bg-background-dark border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl px-6 py-16 flex flex-col items-center justify-center text-center hover:border-primary transition-all cursor-pointer">
+<div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">upload_file</span>
+</div>
+<h4 class="text-lg font-bold text-slate-900 dark:text-white mb-2">Drag and drop financial datasets</h4>
+<p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Support for .xlsx, .csv, and .pdf formats (max 50MB per file)</p>
+<button class="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-800 px-6 py-2.5 rounded-lg text-sm font-bold transition-all">
+                            Browse Files
+                        </button>
+</div>
+</div>
+</section>
+<!-- Recent Activity / Upload List -->
+<section class="flex flex-col gap-6">
+<div class="flex items-center justify-between">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                        Recently Uploaded Files
+                    </h3>
+<button class="text-sm font-semibold text-primary hover:underline">View All</button>
+</div>
+<div class="bg-white dark:bg-background-dark border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+<table class="w-full text-left">
+<thead class="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+<tr>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">File Name</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Size</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">table_chart</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200">neraca_consolidated_q3.xlsx</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">Neraca</td>
+<td class="px-6 py-4 text-sm text-slate-500">Oct 24, 2023</td>
+<td class="px-6 py-4 text-sm text-slate-500">2.4 MB</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                        Success
+                                    </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">table_chart</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200">opening_balance_2024.csv</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">Saldo Awal</td>
+<td class="px-6 py-4 text-sm text-slate-500">Oct 23, 2023</td>
+<td class="px-6 py-4 text-sm text-slate-500">842 KB</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                        Processing
+                                    </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-red-400 text-xl">picture_as_pdf</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200">asset_depreciation_report.pdf</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">Penyusutan</td>
+<td class="px-6 py-4 text-sm text-slate-500">Oct 21, 2023</td>
+<td class="px-6 py-4 text-sm text-slate-500">12.1 MB</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                        Failed
+                                    </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-xl">table_chart</span>
+<span class="text-sm font-semibold text-slate-700 dark:text-slate-200">inventory_ledger_v2.xlsx</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm text-slate-500">Laporan Barang</td>
+<td class="px-6 py-4 text-sm text-slate-500">Oct 20, 2023</td>
+<td class="px-6 py-4 text-sm text-slate-500">4.5 MB</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        Queued
+                                    </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</main>
+</div>
+</body></html>
