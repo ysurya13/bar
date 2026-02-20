@@ -153,22 +153,33 @@ h2, h3, h4 {
     letter-spacing: -0.025em;
 }
 
-/* Top Navigation / Radio Horizontal Styling */
-div[data-testid="stRadio"] > div[role="radiogroup"] {
-    flex-direction: row;
-    gap: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
+/* Custom Navigation Buttons (Text Links) */
+div[data-testid="stHorizontalBlock"] button {
+    border: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    color: #64748b !important;
+    font-weight: 500 !important;
+    padding: 0.5rem 0.25rem !important;
+    margin: 0 !important;
+    transition: all 0.2s ease !important;
 }
 
-div[data-testid="stRadio"] label {
-    font-weight: 600;
-    color: #64748b;
-}
-
-/* Selected Radio style (approximating under-border) */
-div[data-testid="stRadio"] label[data-checked="true"] {
+div[data-testid="stHorizontalBlock"] button:hover {
     color: var(--primary) !important;
+    background-color: rgba(14, 46, 205, 0.05) !important;
+}
+
+div[data-testid="stHorizontalBlock"] button p {
+    font-size: 0.9rem !important;
+}
+
+/* Simulated Active State class (via st.markdown trickery if needed, but we'll use emojis/text weight) */
+.nav-active {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    border-left: 2px solid var(--primary) !important;
+    padding-left: 0.5rem !important;
 }
 
 /* Primary buttons */
@@ -232,33 +243,97 @@ def get_asset_category(row):
     if kode.startswith('166'): return 'Aset Lain-lain'
     return 'Akumulasi Penyusutan & Amortisasi'
 
+# Initialize Session State for Navigation
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "About"
+
 # Header & Top Navigation
 col1, col2 = st.columns([1, 4])
 with col1:
     st.markdown("<h2 style='margin-top: 0; padding-top: 0; color: #0e2ecd; font-weight: 800; font-size: 1.5rem;'>🏦 Rekon BMN</h2>", unsafe_allow_html=True)
 with col2:
-    # Top horizontal navigation
-    top_nav_selection = st.radio(
-        "Navigation",
-        ["About", "Data Ingestion", "Analytics Dashboards", "Generate Bar"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+    # Text-based Navigation using Columns and Buttons
+    nav_cols = st.columns([1, 1, 2, 1, 2])
+    
+    def set_page(page_name):
+        st.session_state.current_page = page_name
 
-if top_nav_selection == "About":
-    page = "About"
-elif top_nav_selection == "Data Ingestion":
-    page = "Data Ingestion"
-elif top_nav_selection == "Analytics Dashboards":
-    page = "Analytics Dashboard"
-elif top_nav_selection == "Generate Bar":
+    def render_nav_item(col, text, page_name):
+        is_active = st.session_state.current_page == page_name
+        
+        # Determine styling
+        color = "var(--primary)" if is_active else "#64748b"
+        fw = "700" if is_active else "500"
+        border = f"border-left: 3px solid var(--primary); padding-left: 8px;" if is_active else "border-left: 3px solid transparent; padding-left: 8px;"
+        bg = "background-color: rgba(14, 46, 205, 0.04); border-radius: 4px;" if is_active else ""
+        
+        with col:
+            # We use a button to trigger the state change, but make it invisible via CSS, overlaying the custom HTML
+            if st.button(text, key=f"nav_{page_name}", on_click=set_page, args=(page_name,), use_container_width=True):
+                pass
+            
+            # CSS hack to target the specific button label to style it like a text link
+            st.markdown(f"""
+                <style>
+                button[key="nav_{page_name}"] p {{
+                    color: {color} !important;
+                    font-weight: {fw} !important;
+                }}
+                div[data-testid="stButton"]:has(button[key="nav_{page_name}"]) {{
+                    {border}
+                    {bg}
+                }}
+                </style>
+            """, unsafe_allow_html=True)
+
+    render_nav_item(nav_cols[0], "About", "About")
+    render_nav_item(nav_cols[1], "Data Input", "Data Input")
+    render_nav_item(nav_cols[2], "Analytics Dashboards", "Analytics Dashboard")
+    render_nav_item(nav_cols[3], "Generate Bar", "Generate Bar")
+
+page = st.session_state.current_page
+
+if page == "Generate Bar":
     st.sidebar.subheader("Generate BAR Tasks")
-    page = st.sidebar.radio("Sub Page", ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"])
+    
+    # Custom Sidebar Navigation for Sub-pages
+    if 'sub_page' not in st.session_state:
+        st.session_state.sub_page = "Face BAR"
+        
+    def set_subpage(sp):
+        st.session_state.sub_page = sp
+
+    st.markdown("### Tasks")
+    for sp in ["Face BAR", "Lampiran Kualitatif", "Lampiran Kuantitatif"]:
+        is_act = st.session_state.sub_page == sp
+        fg = "#0e2ecd" if is_act else "#64748b"
+        wt = "700" if is_act else "500"
+        bg_color = "rgba(14, 46, 205, 0.05)" if is_act else "transparent"
+        b_left = "3px solid #0e2ecd" if is_act else "3px solid transparent"
+        
+        if st.sidebar.button(sp, key=f"sub_{sp}", on_click=set_subpage, args=(sp,), use_container_width=True):
+            pass
+            
+        st.sidebar.markdown(f"""
+            <style>
+            div[data-testid="stSidebar"] button[key="sub_{sp}"] p {{
+                color: {fg} !important;
+                font-weight: {wt} !important;
+            }}
+            div[data-testid="stSidebar"] div[data-testid="stButton"]:has(button[key="sub_{sp}"]) {{
+                background-color: {bg_color} !important;
+                border-left: {b_left} !important;
+                border-radius: 0 4px 4px 0 !important;
+            }}
+            </style>
+        """, unsafe_allow_html=True)
+        
+    page = st.session_state.sub_page
 
 # Sidebar Header
 st.sidebar.title("Parameters")
 
-if page == "Data Ingestion":
+if page == "Data Input":
     st.title("📊 Data Ingestion")
     st.markdown("Upload financial reports (Neraca, Saldo Awal, Penyusutan) to extract and persist data.")
 
