@@ -297,7 +297,8 @@ if page == "Generate Bar":
     page = st.session_state.sub_page
 
 # Sidebar Header
-st.sidebar.title("Parameters")
+if page != "About":
+    st.sidebar.title("Parameters")
 
 if page == "About":
     st.markdown("""
@@ -380,7 +381,7 @@ if page == "About":
             st.markdown("<div style='min-height: 120px; display: flex; align-items: flex-start; justify-content: center;'><p style='text-align: center; color: #64748b; font-size: 0.95rem; margin-bottom: 0;'>Compile qualitative notes, reconcile quantitative balances, and instantly export signed Berita Acara Rekonsiliasi (BAR) PDFs.</p></div>", unsafe_allow_html=True)
             
     st.markdown("<br><br><hr style='border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem;'>Financial Data Engine v1.2</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem;'>Rekon BMN Engine v1.2 by YPAS & Gemini</p>", unsafe_allow_html=True)
 
 
 if page == "Data Input":
@@ -1280,4 +1281,4 @@ elif page == "Lampiran Kuantitatif":
     st.info("Detailed quantitative tables will be added here.")
 
 st.divider()
-st.caption("Multi-Format Excel Data Ingestion & Analytics Engine v1.1")
+# st.caption("Multi-Format Excel Data Ingestion & Analytics Engine v1.1")

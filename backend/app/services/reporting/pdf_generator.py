@@ -1,8 +1,9 @@
 import io
+import os
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
 from reportlab.lib.units import inch
 
 class BARPDFGenerator:
@@ -35,6 +36,46 @@ class BARPDFGenerator:
         self.normal_style.leading = 14
         self.normal_style.alignment = 4  # TA_JUSTIFY
         
+        # 0. Kop Surat Header
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.abspath(os.path.join(current_dir, "../../../.."))
+        logo_path = os.path.join(project_root, "asset", "logo-kemenkeu.png")
+        
+        try:
+            logo = Image(logo_path, width=1.3*inch, height=1.3*inch)
+            logo.hAlign = 'CENTER'
+        except Exception:
+            logo = Paragraph("Logo", self.normal_style)
+            
+        header_text = """
+        <font size="12"><b>KEMENTERIAN KEUANGAN REPUBLIK INDONESIA</b></font><br/>
+        <font size="10"><b>DIREKTORAT JENDERAL KEKAYAAN NEGARA</b></font><br/>
+        <font size="11"><b>DIREKTORAT PERUMUSAN KEBIJAKAN KEKAYAAN NEGARA</b></font><br/>
+        <font size="7">GEDUNG SYAFRUDIN PRAWIRANEGARA III LANTAI 7 UTARA (APT) JALAN LAPANGAN BANTENG TIMUR NOMOR 2-4</font><br/>
+        <font size="7">JAKARTA 10710 CALL CENTER 1500-991; SITUS WWW.DJKN.KEMENKEU.GO.ID</font>
+        """
+        
+        header_text_style = ParagraphStyle(
+            'KopHeader',
+            parent=self.styles['Normal'],
+            alignment=1, # Center
+            leading=12
+        )
+        
+        kop_table = Table(
+            [[logo, Paragraph(header_text, header_text_style)]],
+            colWidths=[1.5*inch, 5.3*inch]
+        )
+        kop_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('LINEBELOW', (0,0), (-1,-1), 1.5, colors.black),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 10)
+        ]))
+        
+        elements.append(kop_table)
+        elements.append(Spacer(1, 0.15 * inch))
+
         # 1. Header
         elements.append(Paragraph("BERITA ACARA", self.header_style))
         elements.append(Paragraph("REKONSILIASI DAN PEMUTAKHIRAN DATA BARANG MILIK NEGARA", self.header_style))
