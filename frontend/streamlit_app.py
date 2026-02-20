@@ -15,6 +15,13 @@ from app.db.session import SessionLocal
 from app.models.extracted_data import ExtractedEntry, BARMetadata, BARNonNeraca, OrganizationPIC, PenyusutanEntry, LaporanBarangEntry
 from app.services.reporting.pdf_generator import BARPDFGenerator
 
+st.set_page_config(
+    page_title="Rekon BMN",
+    page_icon="🏦",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # Utility: Get Organization PIC (Counterpart)
 def get_organization_pic(kode_ba):
     db = SessionLocal()
