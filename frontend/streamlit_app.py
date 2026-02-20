@@ -846,12 +846,25 @@ elif page == "Analytics Dashboard":
             with st.container(border=True):
                 st.subheader("Organization Comparison")
                 
-                col_filter, _ = st.columns([1, 3])
-                with col_filter:
+                avail_comp_years = sorted(list(filtered_df['tahun_anggaran'].unique()), reverse=True)
+                
+                col_filter1, col_filter2, _ = st.columns([1, 1, 2])
+                with col_filter1:
                     top_n = st.selectbox("Show Top Organizations", [5, 10, 20, 50], index=1)
+                with col_filter2:
+                    if avail_comp_years:
+                        comp_year = st.selectbox("Compare Fiscal Year", avail_comp_years, index=0)
+                    else:
+                        comp_year = None
+                        st.selectbox("Compare Fiscal Year", ["No Data"], disabled=True)
+                
+                if comp_year is not None:
+                    comp_target_df = filtered_df[filtered_df['tahun_anggaran'] == comp_year]
+                else:
+                    comp_target_df = filtered_df
                 
                 # Group By BA
-                comparison_df = filtered_df.groupby(['kode_ba', 'uraian_ba'])['nilai'].sum().reset_index()
+                comparison_df = comp_target_df.groupby(['kode_ba', 'uraian_ba'])['nilai'].sum().reset_index()
                 comparison_df = comparison_df.sort_values(by='nilai', ascending=False).head(top_n)
                 
                 comparison_df['val_fmt'] = comparison_df['nilai'].apply(fmt_trillion)
